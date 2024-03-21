@@ -11,10 +11,12 @@ import {
 	MenuItem,
 	InputLabel,
 	SelectChangeEvent,
+	Snackbar,
 } from "@mui/material";
 import jsQR from "jsqr";
 import { getAllEvents, checkInUsersByEvent, EventEntity } from "@/common/api";
 import { useFirebase } from "@/components/context";
+import ManualCheckIn from "@/components/manualCheckIn/pages";
 
 const ScanPage: React.FC = () => {
 	const videoRef = useRef<HTMLVideoElement>(null);
@@ -22,7 +24,8 @@ const ScanPage: React.FC = () => {
 	const [scanError, setScanError] = useState<string | null>(null);
 	const [events, setEvents] = useState<EventEntity[]>([]);
 	const [selectedEvent, setSelectedEvent] = useState<string>("");
-	const { user } = useFirebase();
+	const [snackbarOpen, setSnackbarOpen] = useState(false);
+	const { user, logout } = useFirebase();
 
 	useEffect(() => {
 		const startCamera = async () => {
@@ -38,11 +41,14 @@ const ScanPage: React.FC = () => {
 				setScanError("Error accessing the camera");
 			}
 		};
+
 		const redirectIfSignedOut = () => {
-			if (!user) {
-				window.location.href = "/auth";
-			}
-		}
+			window.addEventListener("storage", () => {
+				if (!user) {
+					window.location.href = "/auth";
+				}
+			});
+		};
 
 		const fetchEvents = async () => {
 			const fetchedEvents = await getAllEvents(); // Adjust according to your API call structure
@@ -55,6 +61,17 @@ const ScanPage: React.FC = () => {
 
 	const handleEventChange = (event: SelectChangeEvent<string>) => {
 		setSelectedEvent(event.target.value);
+	};
+
+	const handleClose = (
+		event: React.SyntheticEvent | Event,
+		reason?: string
+	) => {
+		if (reason === "clickaway") {
+			return;
+		}
+
+		setSnackbarOpen(false);
 	};
 
 	const captureAndScanImage = async () => {
@@ -74,21 +91,24 @@ const ScanPage: React.FC = () => {
 				setScanResult(code.data);
 				setScanError(null);
 				checkInUser(code.data); // Function to check in the user
+				setSnackbarOpen(true);
 			} else {
 				setScanError("No QR code detected");
+				setSnackbarOpen(true);
 			}
 		} else {
 			setScanError("Error processing the image");
+			setSnackbarOpen(true);
 		}
 	};
 
 	const checkInUser = async (userId: string) => {
 		if (!selectedEvent) {
 			setScanError("Please select an event");
+			setSnackbarOpen(true);
 			return;
 		}
 		try {
-			// Use the `checkInUsersByEvent` mutation to check in the user
 			if (!user) {
 				window.location.href = "/auth";
 				return;
@@ -99,8 +119,12 @@ const ScanPage: React.FC = () => {
 				{ eventId: selectedEvent, userId: userId }
 			);
 			setScanResult(
-				`User ${userId} checked in successfully to event ${selectedEvent}`
+				`User ${userId} checked in successfully to event ${
+					events.find((event) => event.id === selectedEvent)?.name ||
+					selectedEvent
+				}`
 			);
+			setSnackbarOpen(true);
 		} catch (error) {
 			console.error("Check-in failed", error);
 			setScanError("Check-in failed");
@@ -126,6 +150,7 @@ const ScanPage: React.FC = () => {
 					labelId="event-select-label"
 					value={selectedEvent}
 					onChange={handleEventChange}
+					defaultValue={events.length > 0 ? events[0].id : ""}
 					label="Select Event"
 				>
 					{events.map((event) => (
@@ -139,7 +164,7 @@ const ScanPage: React.FC = () => {
 				<video ref={videoRef} autoPlay muted playsInline className="w-full" />
 			</div>
 			<Button
-				variant="contained"
+				variant="outlined"
 				color="primary"
 				onClick={captureAndScanImage}
 				className="mt-4"
@@ -147,15 +172,27 @@ const ScanPage: React.FC = () => {
 				Scan QR Code
 			</Button>
 			{scanResult && (
-				<Alert severity="success" className="w-full mt-4">
-					Scan Result: {scanResult}
-				</Alert>
+				<Snackbar open={!!scanResult && snackbarOpen} autoHideDuration={3000}>
+					<Alert severity="success" className="w-full mt-4">
+						Scan Result: {scanResult}
+					</Alert>
+				</Snackbar>
 			)}
 			{scanError && (
-				<Alert severity="error" className="w-full mt-4">
-					{scanError}
-				</Alert>
+				<Snackbar
+					open={!!scanError && snackbarOpen}
+					autoHideDuration={3000}
+					onClose={handleClose}
+				>
+					<Alert severity="error" className="w-full mt-4">
+						{scanError}
+					</Alert>
+				</Snackbar>
 			)}
+
+			<div className="manual-checkin-section mt-8">
+				<ManualCheckIn />
+			</div>
 		</Container>
 	);
 };

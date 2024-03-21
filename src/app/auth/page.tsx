@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useState, useEffect } from "react";
 import { useForm, FormProvider, Controller } from "react-hook-form";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -13,7 +13,6 @@ import VisibilityOff from "@mui/icons-material/VisibilityOff";
 import Container from "@mui/material/Container";
 import Alert from "@mui/material/Alert";
 import { useFirebase } from "@/components/context";
-import { redirect } from "next/dist/server/api-utils";
 
 const PasswordInput = ({ name, control }: { name: string; control: any }) => {
 	const [showPassword, setShowPassword] = useState(false);
@@ -48,25 +47,38 @@ const PasswordInput = ({ name, control }: { name: string; control: any }) => {
 	);
 };
 
-export default function AuthScreen(): JSX.Element {
-	const { loginWithEmailAndPassword, isAuthenticated } = useFirebase();
+export default function AuthScreen() {
+	const { loginWithEmailAndPassword, isAuthenticated, logout } = useFirebase();
 	const methods = useForm({ defaultValues: { email: "", password: "" } });
 	const { handleSubmit, control } = methods;
 
 	const onSubmit = useCallback(
-		async (data: { email: string; password: string }) => {
+		async (data: { email: string; password: string; }) => {
 			try {
 				await loginWithEmailAndPassword(data.email, data.password);
-                if (isAuthenticated) {
-                    console.log("Redirecting to /scans");
-                    window.location.href = "/scans";
-                }
 			} catch (error) {
 				console.error(error);
 			}
 		},
-		[isAuthenticated, loginWithEmailAndPassword]
+		[loginWithEmailAndPassword]
 	);
+
+	// Add a useEffect hook to perform actions based on isAuthenticated changes
+	useEffect(() => {
+		if (isAuthenticated) {
+			console.log("Redirecting to /scans");
+			window.location.href = "/scans";
+		}
+	}, [isAuthenticated]); // This effect depends on isAuthenticated
+
+	const handleLogout = useCallback(async () => {
+		try {
+			await logout();
+			console.log("User logged out successfully");
+		} catch (error) {
+			console.error("Logout failed", error);
+		}
+	}, [logout]);
 
 	return (
 		<Container component="main" maxWidth="xs">
@@ -99,8 +111,6 @@ export default function AuthScreen(): JSX.Element {
 							)}
 						/>
 						<PasswordInput name="password" control={control} />
-						{/* You can implement a function to map privilege or user state to error messages */}
-						{/* For demonstration, this just checks if the user is null to show a generic error */}
 						{isAuthenticated === false && (
 							<Alert severity="error" sx={{ mt: 2 }}>
 								Failed to log in. Please check your credentials.
@@ -115,6 +125,18 @@ export default function AuthScreen(): JSX.Element {
 						>
 							Sign In
 						</Button>
+						{isAuthenticated && (
+							<Button
+								type="button"
+								fullWidth
+								variant="outlined"
+								color="secondary"
+								sx={{ mt: 1 }}
+								onClick={handleLogout}
+							>
+								Log Out
+							</Button>
+						)}
 					</FormProvider>
 				</Box>
 			</Box>

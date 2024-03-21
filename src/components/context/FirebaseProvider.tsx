@@ -12,6 +12,7 @@ import {
 	User,
 	createUserWithEmailAndPassword, onIdTokenChanged,
 } from "firebase/auth";
+import { initApi, resetApi } from "@/common/api/axios";
 
 export enum FirebaseAuthError {
 	NONE,
@@ -144,9 +145,9 @@ const FirebaseProvider: FC<Props> = ({ children, auth }) => {
 		return onIdTokenChanged(auth, async (user) => {
 			// initialize api if user exists
 			if (user) {
-				console.log("user exists");
+				initApi(user);
 			} else {
-				console.log("user does not exist");
+				resetApi();
 			}
 		});
 	}, [auth]);

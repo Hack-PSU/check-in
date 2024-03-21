@@ -1,9 +1,16 @@
 "use client";
+
+import { useRouter } from "next/navigation";
+import { use, useEffect } from "react";
+
 export default function Page(): JSX.Element {
-    window.location.href = "/auth";
-    return (
-        <div>
-            <h1>Page</h1>
-        </div>
-    );
+	const router = useRouter();
+	useEffect(() => {
+        router.push("/auth");
+	}, [router]);
+	return (
+		<div>
+			<h1>Page</h1>
+		</div>
+	);
 }

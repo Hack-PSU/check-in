@@ -68,7 +68,7 @@ const ScanPage: React.FC = () => {
 		startCamera();
 		fetchEvents();
 		redirectIfSignedOut();
-	}, []);
+	}, [IsAuthResolved, user]);
 
 	const handleEventChange = (event: SelectChangeEvent<string>) => {
 		setSelectedEvent(event.target.value);

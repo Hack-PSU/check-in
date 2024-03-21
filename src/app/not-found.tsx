@@ -1,14 +1,16 @@
 "use client";
 import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 const Custom404: React.FC = () => {
+	const router = useRouter();
 	useEffect(() => {
 		const redirectTimeout = setTimeout(() => {
-			window.location.href = "/";
+			router.push("/");
 		}, 3000);
 
 		return () => clearTimeout(redirectTimeout);
-	}, []);
+	}, [router]);
 
 	return (
 		<section className="flex flex-col items-center justify-center h-screen">

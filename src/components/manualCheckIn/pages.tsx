@@ -38,12 +38,9 @@ const ManualCheckIn: React.FC = () => {
 	const [isAuthResolved, setIsAuthResolved] = useState(false);
 
 	useEffect(() => {
-		// Logic to check if authentication state is resolved, e.g., a non-null user or a confirmed null
 		const checkAuthState = async () => {
-			// Dummy timeout to simulate delayed auth state resolution
-			await new Promise((resolve) => setTimeout(resolve, 1000)); // Simulate delay
+			await new Promise((resolve) => setTimeout(resolve, 1000));
 			if (user !== undefined) {
-				// Adjust condition based on how `user` is represented when not authenticated
 				setIsAuthResolved(true);
 			}
 		};
@@ -115,17 +112,17 @@ const ManualCheckIn: React.FC = () => {
 				</Select>
 			</FormControl>
 			<Box display="flex" justifyContent="center" marginTop={2}>
-				<Button variant="contained" onClick={handleCheckIn}>
+				<Button variant="outlined" onClick={handleCheckIn}>
 					Check In User
 				</Button>
 			</Box>
 			<Snackbar
 				open={openSnackbar}
-				autoHideDuration={6000}
+				autoHideDuration={3000}
 				onClose={() => setOpenSnackbar(false)}
 			>
 				<Alert
-					severity={message === "Check-in failed" ? "error" : "success"}
+					severity={message.includes("successfully") ? "success" : "error"}
 					onClose={() => setOpenSnackbar(false)}
 					key="alert"
 					sx={{ width: "100%" }}

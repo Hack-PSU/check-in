@@ -25,7 +25,19 @@ const ScanPage: React.FC = () => {
 	const [events, setEvents] = useState<EventEntity[]>([]);
 	const [selectedEvent, setSelectedEvent] = useState<string>("");
 	const [snackbarOpen, setSnackbarOpen] = useState(false);
+	const [IsAuthResolved, setIsAuthResolved] = useState(false);
 	const { user, logout } = useFirebase();
+	useEffect(() => {
+		const checkAuthState = async () => {
+			await new Promise((resolve) => setTimeout(resolve, 1000));
+			if (user !== undefined) {
+				setIsAuthResolved(true);
+			}
+		};
+
+		checkAuthState();
+	}, [user]);
+
 
 	useEffect(() => {
 		const startCamera = async () => {
@@ -42,12 +54,10 @@ const ScanPage: React.FC = () => {
 			}
 		};
 
-		const redirectIfSignedOut = () => {
-			window.addEventListener("storage", () => {
-				if (!user) {
-					window.location.href = "/auth";
-				}
-			});
+		const redirectIfSignedOut = async () => {
+			if (IsAuthResolved && !user) {
+				window.location.href = "/auth";
+			}
 		};
 
 		const fetchEvents = async () => {
@@ -57,6 +67,7 @@ const ScanPage: React.FC = () => {
 
 		startCamera();
 		fetchEvents();
+		redirectIfSignedOut();
 	}, []);
 
 	const handleEventChange = (event: SelectChangeEvent<string>) => {

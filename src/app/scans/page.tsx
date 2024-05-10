@@ -27,7 +27,7 @@ const ScanPage: React.FC = () => {
 	const [events, setEvents] = useState<EventEntity[]>([]);
 	const [selectedEvent, setSelectedEvent] = useState<string>("");
 	const [snackbarOpen, setSnackbarOpen] = useState(false);
-	const { user, isAuthenticated, isLoading, logout } = useFirebase();
+	const { user, isLoading, logout } = useFirebase();
 
 	useEffect(() => {
 		const startCamera = async () => {
@@ -72,7 +72,6 @@ const ScanPage: React.FC = () => {
 		if (reason === "clickaway") {
 			return;
 		}
-
 		setSnackbarOpen(false);
 	};
 
@@ -90,10 +89,8 @@ const ScanPage: React.FC = () => {
 			const code = jsQR(imageData.data, imageData.width, imageData.height);
 
 			if (code) {
-				setScanResult(code.data);
 				setScanError(null);
 				checkInUser(code.data);
-				setSnackbarOpen(true);
 			} else {
 				setScanError("No QR code detected");
 				setSnackbarOpen(true);
@@ -120,14 +117,21 @@ const ScanPage: React.FC = () => {
 			await checkInUsersByEvent(
 				{ organizerId: user.uid },
 				{ eventId: selectedEvent, userId: userId }
-			);
-			setScanResult(
-				`User ${userId} checked in successfully to event ${
-					events.find((event) => event.id === selectedEvent)?.name ||
-					selectedEvent
-				}`
-			);
-			setSnackbarOpen(true);
+			)
+				.then(() => {
+					setScanResult(
+						`User ${userId} checked in successfully to event ${
+							events.find((event) => event.id === selectedEvent)?.name ||
+							selectedEvent
+						}`
+					);
+					setSnackbarOpen(true);
+				})
+				.catch((error) => {
+					console.error("Check-in failed", error);
+					setScanError("Check-in failed");
+					setSnackbarOpen(true);
+				});
 		} catch (error) {
 			console.error("Check-in failed", error);
 			setScanError("Check-in failed");

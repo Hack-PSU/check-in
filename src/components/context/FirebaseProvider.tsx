@@ -1,176 +1,143 @@
-"use-client";
-
-import React, { createContext, FC, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useContext, useEffect, useState } from "react";
 import {
 	Auth,
 	AuthError,
-	AuthErrorCodes,
 	getIdToken,
 	onAuthStateChanged,
 	signInWithEmailAndPassword,
 	signOut,
 	User,
-	createUserWithEmailAndPassword, onIdTokenChanged,
+	createUserWithEmailAndPassword,
+	onIdTokenChanged,
+	AuthErrorCodes,
 } from "firebase/auth";
 import { initApi, resetApi } from "@/common/api/axios";
+import { jwtDecode, JwtPayload } from "jwt-decode";
 
-export enum FirebaseAuthError {
+type FirebaseJwtPayload = JwtPayload & {
+	production?: number;
+	staging?: number;
+};
+
+enum AuthEnvironment {
+	PROD = "production",
+	STAGING = "staging",
+}
+enum Role {
 	NONE,
-	INVALID_EMAIL,
-	INVALID_PASSWORD,
-	EMAIL_EXISTS,
-	WEAK_PASSWORD,
+	VOLUNTEER,
+	TEAM,
+	EXEC,
+	TECH,
+	FINANCE,
+}
+
+function extractAuthToken(token: string): string {
+	return token.startsWith("Bearer") ? token.replace("Bearer ", "") : token;
+}
+function decodeToken(token: string): FirebaseJwtPayload {
+	return jwtDecode(token) as FirebaseJwtPayload;
+}
+
+export function getRole(token: string): Role {
+	const extractToken = extractAuthToken(token);
+	const decodedToken = decodeToken(extractToken);
+	console.log(decodedToken);
+	const role = decodedToken[AuthEnvironment.PROD];
+	return role ? (role as Role) : Role.NONE;
 }
 
 type FirebaseProviderHooks = {
+	isLoading: boolean;
 	isAuthenticated: boolean;
 	user?: User;
 	token: string;
-	error: FirebaseAuthError;
-	signUpWithEmailAndPassword(email: string, password: string): Promise<void>;
+	error: string; // Using a simple string for error messages
 	loginWithEmailAndPassword(email: string, password: string): Promise<void>;
-	logout(next?: () => Promise<void>): Promise<void>;
-}
+	logout(): Promise<void>;
+};
 
 type Props = {
 	children: React.ReactNode;
 	auth: Auth;
-}
+};
 
-const FirebaseContext = createContext<FirebaseProviderHooks>({} as FirebaseProviderHooks);
+const FirebaseContext = createContext<FirebaseProviderHooks>(
+	{} as FirebaseProviderHooks
+);
 
-const FirebaseProvider: FC<Props> = ({ children, auth }) => {
-	const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+const FirebaseProvider: React.FC<Props> = ({ children, auth }) => {
+	const [isLoading, setIsLoading] = useState(true);
 	const [user, setUser] = useState<User | undefined>();
-	const [error, setError] = useState<FirebaseAuthError>(FirebaseAuthError.NONE);
-	const [token, setToken] = useState<string>("");
+	const [token, setToken] = useState("");
+	const [error, setError] = useState("");
 
-	const getUserIdToken = useCallback(async (user: User) => {
-		return await getIdToken(user);
-	}, []);
-
-	const resolveAuthError = useCallback((error: AuthError) => {
-		switch (error.code) {
-			case AuthErrorCodes.EMAIL_EXISTS:
-				setError(FirebaseAuthError.EMAIL_EXISTS);
-				break;
-			case AuthErrorCodes.INVALID_EMAIL:
-				setError(FirebaseAuthError.INVALID_EMAIL);
-				break;
-			case AuthErrorCodes.INVALID_PASSWORD:
-				setError(FirebaseAuthError.INVALID_PASSWORD);
-				break;
-			case AuthErrorCodes.WEAK_PASSWORD:
-				setError(FirebaseAuthError.WEAK_PASSWORD);
-				break;
-		}
-	}, []);
-
-	const resolveAuthState = useCallback(async (user?: User) => {
+	const handleAuthStateChange = async (user: User | null) => {
+		setIsLoading(true);
 		if (user) {
-			const token = await getUserIdToken(user);
+			initApi(user);
 			setToken(token);
 			setUser(user);
-			setIsAuthenticated(true);
-			console.log("user exists");
 		} else {
+			setToken("");
 			setUser(undefined);
-			setIsAuthenticated(false);
-			setError(FirebaseAuthError.NONE);
+			resetApi();
 		}
-	}, [getUserIdToken]);
-
-	const signUpWithEmailAndPassword: FirebaseProviderHooks["signUpWithEmailAndPassword"] =
-		useCallback(
-			async (email: string, password: string) => {
-				setError(FirebaseAuthError.NONE);
-				try {
-					const userCredential = await createUserWithEmailAndPassword(
-						auth,
-						email,
-						password
-					);
-
-					if (userCredential.user) {
-						await resolveAuthState(userCredential.user);
-					}
-				} catch (e) {
-					resolveAuthError(e as AuthError);
-				}
-			},
-			[auth, resolveAuthError, resolveAuthState]
-		);
-
-	const loginWithEmailAndPassword: FirebaseProviderHooks["loginWithEmailAndPassword"] =
-		useCallback(
-		async (email, password) => {
-			setError(FirebaseAuthError.NONE);
-			try {
-				const userCredential = await signInWithEmailAndPassword(
-					auth,
-					email,
-					password,
-				);
-
-				if (userCredential.user) {
-					await resolveAuthState(userCredential.user)
-				}
-			} catch (e) {
-				resolveAuthError(e as AuthError)
-			}
-		},
-	[auth, resolveAuthError, resolveAuthState]
-	);
-
-	const logout: FirebaseProviderHooks["logout"] =
-		useCallback(async (next) => {
-			try {
-				await signOut(auth);
-				setToken("");
-				setIsAuthenticated(false);
-
-				await next?.();
-			} catch (e) {
-				console.error(e);
-			}
-		}, [auth]);
+		setIsLoading(false);
+	};
 
 	useEffect(() => {
-		return onAuthStateChanged(auth, async (user) => {
-			await resolveAuthState(user ?? undefined);
-		});
-	}, [auth, resolveAuthState]);
-
-	useEffect(() => {
-		return onIdTokenChanged(auth, async (user) => {
-			// initialize api if user exists
-			if (user) {
-				initApi(user);
-			} else {
-				resetApi();
-			}
-		});
+		const unsubscribeAuth = onAuthStateChanged(auth, handleAuthStateChange);
+		const unsubscribeToken = onIdTokenChanged(auth, handleAuthStateChange);
+		return () => {
+			unsubscribeAuth();
+			unsubscribeToken();
+		};
 	}, [auth]);
 
-	const value = useMemo(() => ({
-		isAuthenticated,
+	const loginWithEmailAndPassword = async (email: string, password: string) => {
+		setError("");
+		try {
+			const userCredential = await signInWithEmailAndPassword(
+				auth,
+				email,
+				password
+			);
+			handleAuthStateChange(userCredential.user);
+			const token = await getIdToken(userCredential.user);
+			if (getRole(token) < Role.TEAM) {
+				logout();
+				throw AuthErrorCodes.INTERNAL_ERROR;
+			}
+		} catch (error) {
+			setError((error as AuthError).message);
+			throw error;
+		}
+	};
+
+	const logout = async () => {
+		try {
+			await signOut(auth);
+			handleAuthStateChange(null);
+		} catch (error) {
+			setError((error as AuthError).message); // Handle logout errors
+		}
+	};
+
+	const value = {
+		isLoading,
+		isAuthenticated: !!user && !!token && getRole(token) > Role.TEAM,
 		user,
-		error,
 		token,
-		signUpWithEmailAndPassword,
+		error,
 		loginWithEmailAndPassword,
 		logout,
-	}), [
-		isAuthenticated,
-		user,
-		error,
-		token,
-		signUpWithEmailAndPassword,
-		loginWithEmailAndPassword,
-		logout,
-	]);
+	};
+
 	return (
-		<FirebaseContext.Provider value={value}> {children} </FirebaseContext.Provider>
+		<FirebaseContext.Provider value={value}>
+			{children}
+		</FirebaseContext.Provider>
 	);
 };
 

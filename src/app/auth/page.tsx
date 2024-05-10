@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useCallback, useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useForm, FormProvider, Controller } from "react-hook-form";
+import { useRouter } from "next/navigation";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import TextField from "@mui/material/TextField";
@@ -23,7 +24,6 @@ const PasswordInput = ({ name, control }: { name: string; control: any }) => {
 		<Controller
 			name={name}
 			control={control}
-			defaultValue=""
 			render={({ field }) => (
 				<TextField
 					{...field}
@@ -48,37 +48,39 @@ const PasswordInput = ({ name, control }: { name: string; control: any }) => {
 };
 
 export default function AuthScreen() {
+	const router = useRouter();
 	const { loginWithEmailAndPassword, isAuthenticated, logout } = useFirebase();
+	const [loginError, setLoginError] = useState("");
+	const [isLoading, setLoading] = useState(false);
 	const methods = useForm({ defaultValues: { email: "", password: "" } });
 	const { handleSubmit, control } = methods;
 
-	const onSubmit = useCallback(
-		async (data: { email: string; password: string; }) => {
-			try {
-				await loginWithEmailAndPassword(data.email, data.password);
-			} catch (error) {
-				console.error(error);
-			}
-		},
-		[loginWithEmailAndPassword]
-	);
+	const onSubmit = async (data: { email: string; password: string }) => {
+		setLoading(true);
+		setLoginError("");
+		try {
+			await loginWithEmailAndPassword(data.email, data.password);
+		} catch (error: any) {
+			const errorMessage = error.message || error;
+			console.error(error);
+			setLoginError(errorMessage);
+		}
+		setLoading(false);
+	};
 
-	// Add a useEffect hook to perform actions based on isAuthenticated changes
 	useEffect(() => {
 		if (isAuthenticated) {
-			console.log("Redirecting to /scans");
-			window.location.href = "/scans";
+			router.push("/scans");
 		}
-	}, [isAuthenticated]); // This effect depends on isAuthenticated
+	}, [isAuthenticated, router]);
 
-	const handleLogout = useCallback(async () => {
+	const handleLogout = async () => {
 		try {
 			await logout();
-			console.log("User logged out successfully");
 		} catch (error) {
 			console.error("Logout failed", error);
 		}
-	}, [logout]);
+	};
 
 	return (
 		<Container component="main" maxWidth="xs">
@@ -93,8 +95,8 @@ export default function AuthScreen() {
 				<Typography component="h1" variant="h5">
 					Sign in
 				</Typography>
-				<Box sx={{ mt: 1 }}>
-					<FormProvider {...methods}>
+				<FormProvider {...methods}>
+					<form onSubmit={handleSubmit(onSubmit)} style={{ width: "100%" }}>
 						<Controller
 							name="email"
 							control={control}
@@ -111,9 +113,9 @@ export default function AuthScreen() {
 							)}
 						/>
 						<PasswordInput name="password" control={control} />
-						{isAuthenticated === false && (
+						{loginError && (
 							<Alert severity="error" sx={{ mt: 2 }}>
-								Failed to log in. Please check your credentials.
+								{loginError}
 							</Alert>
 						)}
 						<Button
@@ -121,7 +123,7 @@ export default function AuthScreen() {
 							fullWidth
 							variant="outlined"
 							sx={{ mt: 3, mb: 2 }}
-							onClick={handleSubmit(onSubmit)}
+							disabled={isLoading}
 						>
 							Sign In
 						</Button>
@@ -137,8 +139,8 @@ export default function AuthScreen() {
 								Log Out
 							</Button>
 						)}
-					</FormProvider>
-				</Box>
+					</form>
+				</FormProvider>
 			</Box>
 		</Container>
 	);

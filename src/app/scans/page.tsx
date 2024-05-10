@@ -65,7 +65,7 @@ export default function SimpleBottomNavigation() {
 						boxShadow: "0 -1px 3px rgba(0,0,0,0.2)", // Optional: adds a slight shadow for better visual separation
 					}}
 				>
-					<BottomNavigationAction label="Recents" icon={<QrCodeScanner />} />
+					<BottomNavigationAction label="Scanner" icon={<QrCodeScanner />} />
 					<BottomNavigationAction label="Log Out" icon={<LogoutIcon />} onClick={handleLogout}/>
 				</BottomNavigation>
 			</Box>

@@ -36,7 +36,13 @@ export default function SimpleBottomNavigation() {
 	};
 
 	return (
-		<Box>
+		<Box
+		sx={
+			{
+				paddingBottom: "56px",
+			}
+		}
+		>
 			{renderComponent()}
 			<Box
 				sx={{

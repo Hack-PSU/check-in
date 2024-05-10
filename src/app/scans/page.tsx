@@ -11,6 +11,7 @@ import ScanPage from "@/components/scanPage/page";
 import { useFirebase } from "@/components/context";
 import { useRouter } from "next/navigation";
 
+
 export default function SimpleBottomNavigation() {
 	const [value, setValue] = React.useState(0);
 	const { logout } = useFirebase();

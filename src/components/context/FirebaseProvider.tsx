@@ -113,6 +113,7 @@ const FirebaseProvider: React.FC<Props> = ({ children, auth }) => {
 				);
 				throw AuthErrorCodes.INTERNAL_ERROR;
 			}
+
 			handleAuthStateChange(userCredential.user);
 		} catch (error) {
 			setError((error as AuthError).message);

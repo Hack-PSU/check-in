@@ -92,9 +92,7 @@ export default function AuthScreen() {
 					alignItems: "center",
 				}}
 			>
-				<Typography component="h1" variant="h5">
-					Sign in
-				</Typography>
+				<Box component="img" src="/logo.png" alt="Logo" sx={{ width: "75%" }} />
 				<FormProvider {...methods}>
 					<form onSubmit={handleSubmit(onSubmit)} style={{ width: "100%" }}>
 						<Controller

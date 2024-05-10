@@ -17,27 +17,17 @@ import jsQR from "jsqr";
 import { getAllEvents, checkInUsersByEvent, EventEntity } from "@/common/api";
 import { useFirebase } from "@/components/context";
 import ManualCheckIn from "@/components/manualCheckIn/pages";
+import { useRouter } from "next/navigation";
 
 const ScanPage: React.FC = () => {
 	const videoRef = useRef<HTMLVideoElement>(null);
+	const router = useRouter();
 	const [scanResult, setScanResult] = useState<string | null>(null);
 	const [scanError, setScanError] = useState<string | null>(null);
 	const [events, setEvents] = useState<EventEntity[]>([]);
 	const [selectedEvent, setSelectedEvent] = useState<string>("");
 	const [snackbarOpen, setSnackbarOpen] = useState(false);
-	const [IsAuthResolved, setIsAuthResolved] = useState(false);
-	const { user, logout } = useFirebase();
-	useEffect(() => {
-		const checkAuthState = async () => {
-			await new Promise((resolve) => setTimeout(resolve, 1000));
-			if (user !== undefined) {
-				setIsAuthResolved(true);
-			}
-		};
-
-		checkAuthState();
-	}, [user]);
-
+	const { user, isAuthenticated, isLoading, logout } = useFirebase();
 
 	useEffect(() => {
 		const startCamera = async () => {
@@ -55,20 +45,21 @@ const ScanPage: React.FC = () => {
 		};
 
 		const redirectIfSignedOut = async () => {
-			if (IsAuthResolved && !user) {
-				window.location.href = "/auth";
+			if (!user && !isLoading) {
+				await logout();
+				router.push("/auth");
 			}
 		};
 
 		const fetchEvents = async () => {
-			const fetchedEvents = await getAllEvents(); // Adjust according to your API call structure
-			setEvents(fetchedEvents.data); // Adjust based on the actual response structure
+			const fetchedEvents = await getAllEvents();
+			setEvents(fetchedEvents.data);
 		};
 
 		startCamera();
 		fetchEvents();
 		redirectIfSignedOut();
-	}, [IsAuthResolved, user]);
+	}, [isLoading, logout, router, user]);
 
 	const handleEventChange = (event: SelectChangeEvent<string>) => {
 		setSelectedEvent(event.target.value);
@@ -101,7 +92,7 @@ const ScanPage: React.FC = () => {
 			if (code) {
 				setScanResult(code.data);
 				setScanError(null);
-				checkInUser(code.data); // Function to check in the user
+				checkInUser(code.data);
 				setSnackbarOpen(true);
 			} else {
 				setScanError("No QR code detected");
@@ -121,7 +112,8 @@ const ScanPage: React.FC = () => {
 		}
 		try {
 			if (!user) {
-				window.location.href = "/auth";
+				await logout();
+				router.push("/auth");
 				return;
 			}
 

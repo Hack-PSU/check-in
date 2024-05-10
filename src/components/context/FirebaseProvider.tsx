@@ -7,7 +7,6 @@ import {
 	signInWithEmailAndPassword,
 	signOut,
 	User,
-	createUserWithEmailAndPassword,
 	onIdTokenChanged,
 	AuthErrorCodes,
 } from "firebase/auth";
@@ -40,11 +39,14 @@ function decodeToken(token: string): FirebaseJwtPayload {
 }
 
 export function getRole(token: string): Role {
-	const extractToken = extractAuthToken(token);
-	const decodedToken = decodeToken(extractToken);
-	console.log(decodedToken);
-	const role = decodedToken[AuthEnvironment.PROD];
-	return role ? (role as Role) : Role.NONE;
+	try {
+		const extractToken = extractAuthToken(token);
+		const decodedToken = decodeToken(extractToken);
+		const role = decodedToken[AuthEnvironment.PROD];
+		return role ? (role as Role) : Role.NONE;
+	} catch (error) {
+		return Role.NONE;
+	}
 }
 
 type FirebaseProviderHooks = {
@@ -103,12 +105,15 @@ const FirebaseProvider: React.FC<Props> = ({ children, auth }) => {
 				email,
 				password
 			);
-			handleAuthStateChange(userCredential.user);
 			const token = await getIdToken(userCredential.user);
 			if (getRole(token) < Role.TEAM) {
 				logout();
+				setError(
+					"You do not have the required permissions to access this app."
+				);
 				throw AuthErrorCodes.INTERNAL_ERROR;
 			}
+			handleAuthStateChange(userCredential.user);
 		} catch (error) {
 			setError((error as AuthError).message);
 			throw error;
@@ -126,7 +131,7 @@ const FirebaseProvider: React.FC<Props> = ({ children, auth }) => {
 
 	const value = {
 		isLoading,
-		isAuthenticated: !!user && !!token && getRole(token) > Role.TEAM,
+		isAuthenticated: !!user && error === "",
 		user,
 		token,
 		error,

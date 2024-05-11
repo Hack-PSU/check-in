@@ -10,6 +10,9 @@ import LogoutIcon from "@mui/icons-material/Logout";
 import ScanPage from "@/components/scanPage/page";
 import { useFirebase } from "@/components/context";
 import { useRouter } from "next/navigation";
+import OrganizerAnalyticsPage from "@/components/organizerAnalyticsPage/page";
+import EventsAnalyticsPage from "@/components/eventAnalyticsPage/page";
+import HackathonSummaryPage from "@/components/hackathonAnalyticsPage/page";
 
 export default function SimpleBottomNavigation() {
 	const [value, setValue] = React.useState(0);
@@ -28,6 +31,12 @@ export default function SimpleBottomNavigation() {
 			case 0:
 				return <ScanPage />;
 			case 1:
+				return <OrganizerAnalyticsPage />;
+			case 2:
+				return <EventsAnalyticsPage />;
+			case 3:
+				return <HackathonSummaryPage />;
+			case 4:
 				return <LocationIcon />;
 			default:
 				return <ScanPage />;
@@ -63,6 +72,9 @@ export default function SimpleBottomNavigation() {
 					}}
 				>
 					<BottomNavigationAction label="Scanner" icon={<QrCodeScanner />} />
+					<BottomNavigationAction label="Analytics" icon={<LocationIcon />} />
+					<BottomNavigationAction label="Events" icon={<LocationIcon />} />
+					<BottomNavigationAction label="Summary" icon={<LocationIcon />} />
 					<BottomNavigationAction
 						label="Log Out"
 						icon={<LogoutIcon />}

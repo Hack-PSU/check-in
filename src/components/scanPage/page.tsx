@@ -151,6 +151,12 @@ const ScanPage: React.FC = () => {
 		}
 	};
 
+	const formatDate = (time: number): string => {
+		return new Date(time).toLocaleTimeString("en-US", {
+			hour: "2-digit",
+			minute: "2-digit",
+		});
+	};
 	return (
 		<Container
 			maxWidth="sm"
@@ -175,7 +181,12 @@ const ScanPage: React.FC = () => {
 				>
 					{events.map((event) => (
 						<MenuItem key={event.id} value={event.id}>
-							{event.name}
+							<div style={{ display: "flex", flexDirection: "column" }}>
+								<Typography variant="body1">{event.name}</Typography>
+								<Typography variant="body2" color="textSecondary">
+									{formatDate(event.startTime)} - {formatDate(event.endTime)}
+								</Typography>
+							</div>
 						</MenuItem>
 					))}
 				</Select>

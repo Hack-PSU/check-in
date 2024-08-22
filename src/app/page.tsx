@@ -9,8 +9,6 @@ export default function Page(): JSX.Element {
         router.push("/auth");
 	}, [router]);
 	return (
-		<div>
-			<h1>Page</h1>
-		</div>
+	<></>
 	);
 }

@@ -103,7 +103,9 @@ const ScanPage: React.FC = () => {
 
 			if (code) {
 				setScanError(null);
-				checkInUser(code.data);
+				// remove HACKPSU_ prefix
+				const userId = code.data.replace("HACKPSU_", "");
+				checkInUser(userId);
 			} else {
 				setScanError("No QR code detected");
 				setSnackbarOpen(true);

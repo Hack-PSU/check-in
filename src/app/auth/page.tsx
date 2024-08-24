@@ -52,6 +52,8 @@ export default function AuthScreen() {
 	const { loginWithEmailAndPassword, isAuthenticated, logout } = useFirebase();
 	const [loginError, setLoginError] = useState("");
 	const [isLoading, setLoading] = useState(false);
+
+	
 	const methods = useForm({ defaultValues: { email: "", password: "" } });
 	const { handleSubmit, control } = methods;
 

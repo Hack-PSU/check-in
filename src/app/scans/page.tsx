@@ -16,6 +16,13 @@ import HackathonSummaryPage from "@/components/hackathonAnalyticsPage/page";
 
 export default function SimpleBottomNavigation() {
 	const [value, setValue] = React.useState(0);
+
+	const [mounted, setMounted] = React.useState(false);
+
+	React.useEffect(() => {
+		setMounted(true);
+	}, []);
+
 	const { logout } = useFirebase();
 	const router = useRouter();
 
@@ -27,6 +34,7 @@ export default function SimpleBottomNavigation() {
 
 	// Function to determine which component to render
 	const renderComponent = () => {
+		if (!mounted) return null;
 		switch (value) {
 			case 0:
 				return <ScanPage />;

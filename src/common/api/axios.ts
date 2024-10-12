@@ -26,10 +26,10 @@ const api = axios.create({
 }) as ApiAxiosInstance;
 
 const shouldRefreshToken = (config: ApiAxiosRequestConfig) => {
-  const token = config.headers.authorization?.split("Bearer ")[0];
+  const token = config.headers.authorization?.split("Bearer ")[1];
   const expiration = config.headers.exp;
   const isExpired =
-    DateTime.fromMillis(parseInt(expiration ?? "")) < DateTime.now();
+    expiration ? DateTime.fromMillis(parseInt(expiration)) < DateTime.now() : true;
 
   return isExpired || !token || !expiration;
 };
@@ -70,7 +70,9 @@ api.interceptors.response.use(
 export const initApi = async (user: User | null) => {
   if (user) {
     const token = await getIdToken(user);
+    const tokenResult = await getIdTokenResult(user);
     api.defaults.headers.common["authorization"] = `Bearer ${token}`;
+    api.defaults.headers.common["exp"] = tokenResult.expirationTime; // Set initial expiration
   }
 };
 

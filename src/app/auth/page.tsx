@@ -144,7 +144,7 @@ export default function AuthScreen() {
       {/* Footer */}
       <Box component="footer" sx={{ mt: 8, mb: 4, textAlign: "center" }}>
         <Typography variant="body2" color="text.secondary">
-          Made with ❤️ in Hack Valley at 3 am last night
+          Made with ❤️ in Hacky Valley at 3 am last night
         </Typography>
       </Box>
     </Container>

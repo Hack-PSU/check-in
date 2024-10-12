@@ -93,7 +93,7 @@ export default function AuthScreen() {
           alignItems: "center",
         }}
       >
-        <Box component="img" src="/logo.png" alt="Logo" sx={{ width: "75%" }} />
+		<Box component="img" src={Math.random() < 0.2 ? "/clown.png" : "/logo.png"} alt="Logo" sx={{ width: "75%" }} />
         <FormProvider {...methods}>
           <form onSubmit={handleSubmit(onSubmit)} style={{ width: "100%" }}>
             <Controller

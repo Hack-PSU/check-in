@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
 	Button,
 	Typography,
@@ -10,7 +10,6 @@ import {
 	Select,
 	MenuItem,
 	InputLabel,
-	SelectChangeEvent,
 	Snackbar,
 } from "@mui/material";
 import jsQR from "jsqr";
@@ -21,23 +20,28 @@ import {
 	EventType,
 } from "@/common/api";
 import { useFirebase } from "@/components/context";
-import ManualCheckIn from "@/components/manualCheckIn/pages";
+import ManualCheckIn from "@/components/manualCheckIn/page";
 import { useRouter } from "next/navigation";
 
 const ScanPage: React.FC = () => {
 	const videoRef = useRef<HTMLVideoElement>(null);
 	const router = useRouter();
-	const [scanResult, setScanResult] = useState<string | null>(null);
-	const [scanError, setScanError] = useState<string | null>(null);
 	const [events, setEvents] = useState<EventEntity[]>([]);
 	const [selectedEvent, setSelectedEvent] = useState<string>("");
-	const [snackbarOpen, setSnackbarOpen] = useState(false);
+	const [snackbar, setSnackbar] = useState<{
+		open: boolean;
+		message: string;
+		severity: "success" | "error";
+	} | null>(null);
 	const { user, isLoading, logout } = useFirebase();
 
+	// Start camera on component mount and stop on unmount
 	useEffect(() => {
+		let stream: MediaStream;
+
 		const startCamera = async () => {
 			try {
-				const stream = await navigator.mediaDevices.getUserMedia({
+				stream = await navigator.mediaDevices.getUserMedia({
 					video: { facingMode: "environment" },
 				});
 				if (videoRef.current) {
@@ -45,48 +49,110 @@ const ScanPage: React.FC = () => {
 				}
 			} catch (error) {
 				console.error("Error accessing the camera", error);
-				setScanError("Error accessing the camera");
-			}
-		};
-
-		const redirectIfSignedOut = async () => {
-			if (!user && !isLoading) {
-				await logout();
-				router.push("/auth");
-			}
-		};
-
-		const fetchEvents = async () => {
-			const fetchedEvents = await getAllEvents();
-			setEvents(fetchedEvents.data);
-			if (fetchedEvents.data.length > 0) {
-				const checkinEvent = fetchedEvents.data.find(
-					(event) => event.type === EventType.CHECKIN
-				);
-				if (checkinEvent) {
-					setSelectedEvent(checkinEvent.id);
-				}
+				setSnackbar({
+					open: true,
+					message: "Error accessing the camera",
+					severity: "error",
+				});
 			}
 		};
 
 		startCamera();
-		fetchEvents();
-		redirectIfSignedOut();
-	}, [isLoading, logout, router, user]);
 
-	const handleEventChange = (event: SelectChangeEvent<string>) => {
-		setSelectedEvent(event.target.value);
+		return () => {
+			if (stream) {
+				stream.getTracks().forEach((track) => track.stop());
+			}
+		};
+	}, []);
+
+	// Fetch events on component mount
+	useEffect(() => {
+		const fetchEvents = async () => {
+			try {
+				const fetchedEvents = await getAllEvents();
+				setEvents(fetchedEvents.data);
+				if (fetchedEvents.data.length > 0) {
+					const checkinEvent = fetchedEvents.data.find(
+						(event) => event.type === EventType.CHECKIN
+					);
+					setSelectedEvent(checkinEvent?.id || fetchedEvents.data[0].id);
+				}
+			} catch (error) {
+				console.error("Error fetching events", error);
+				setSnackbar({
+					open: true,
+					message: "Error fetching events",
+					severity: "error",
+				});
+			}
+		};
+
+		fetchEvents();
+	}, []);
+
+	// Redirect if user is signed out
+	useEffect(() => {
+		if (!user && !isLoading) {
+			logout();
+			router.push("/auth");
+		}
+	}, [user, isLoading, logout, router]);
+
+	const handleEventChange = (event: React.ChangeEvent<{ value: unknown }>) => {
+		setSelectedEvent(event.target.value as string);
 	};
 
-	const handleClose = (
-		event: React.SyntheticEvent | Event,
+	const handleSnackbarClose = (
+		event?: React.SyntheticEvent | Event,
 		reason?: string
 	) => {
-		if (reason === "clickaway") {
-			return;
-		}
-		setSnackbarOpen(false);
+		if (reason === "clickaway") return;
+		setSnackbar(null);
 	};
+
+	const checkInUser = useCallback(
+		async (userId: string) => {
+			if (!selectedEvent) {
+				setSnackbar({
+					open: true,
+					message: "Please select an event",
+					severity: "error",
+				});
+				return;
+			}
+			try {
+				if (!user) {
+					await logout();
+					router.push("/auth");
+					return;
+				}
+
+				await checkInUsersByEvent(
+					{ organizerId: user.uid },
+					{ eventId: selectedEvent, userId }
+				);
+
+				const eventName =
+					events.find((event) => event.id === selectedEvent)?.name ||
+					selectedEvent;
+
+				setSnackbar({
+					open: true,
+					message: `User ${userId} checked in successfully to event ${eventName}`,
+					severity: "success",
+				});
+			} catch (error) {
+				console.error("Check-in failed", error);
+				setSnackbar({
+					open: true,
+					message: "Check-in failed",
+					severity: "error",
+				});
+			}
+		},
+		[selectedEvent, user, events, logout, router]
+	);
 
 	const captureAndScanImage = async () => {
 		if (!videoRef.current) return;
@@ -102,54 +168,21 @@ const ScanPage: React.FC = () => {
 			const code = jsQR(imageData.data, imageData.width, imageData.height);
 
 			if (code) {
-				setScanError(null);
-				// remove HACKPSU_ prefix
 				const userId = code.data.replace("HACKPSU_", "");
-				checkInUser(userId);
+				await checkInUser(userId);
 			} else {
-				setScanError("No QR code detected");
-				setSnackbarOpen(true);
+				setSnackbar({
+					open: true,
+					message: "No QR code detected",
+					severity: "error",
+				});
 			}
 		} else {
-			setScanError("Error processing the image");
-			setSnackbarOpen(true);
-		}
-	};
-
-	const checkInUser = async (userId: string) => {
-		if (!selectedEvent) {
-			setScanError("Please select an event");
-			setSnackbarOpen(true);
-			return;
-		}
-		try {
-			if (!user) {
-				await logout();
-				router.push("/auth");
-				return;
-			}
-
-			await checkInUsersByEvent(
-				{ organizerId: user.uid },
-				{ eventId: selectedEvent, userId: userId }
-			)
-				.then(() => {
-					setScanResult(
-						`User ${userId} checked in successfully to event ${
-							events.find((event) => event.id === selectedEvent)?.name ||
-							selectedEvent
-						}`
-					);
-					setSnackbarOpen(true);
-				})
-				.catch((error) => {
-					console.error("Check-in failed", error);
-					setScanError("Check-in failed");
-					setSnackbarOpen(true);
-				});
-		} catch (error) {
-			console.error("Check-in failed", error);
-			setScanError("Check-in failed");
+			setSnackbar({
+				open: true,
+				message: "Error processing the image",
+				severity: "error",
+			});
 		}
 	};
 
@@ -159,31 +192,24 @@ const ScanPage: React.FC = () => {
 			minute: "2-digit",
 		});
 	};
+
 	return (
-		<Container
-			maxWidth="sm"
-			className="flex flex-col items-center justify-center h-screen p-4"
-		>
-			<Typography
-				variant="h5"
-				component="h1"
-				gutterBottom
-				className="text-center mb-4"
-			>
+		<Container maxWidth="sm" sx={{ paddingTop: 4, paddingBottom: 4 }}>
+			<Typography variant="h5" component="h1" gutterBottom align="center">
 				QR Code Scanner
 			</Typography>
-			<FormControl fullWidth className="mb-4">
+
+			<FormControl fullWidth margin="normal">
 				<InputLabel id="event-select-label">Select Event</InputLabel>
 				<Select
 					labelId="event-select-label"
 					value={selectedEvent}
 					onChange={handleEventChange}
-					defaultValue={events.length > 0 ? events[0].id : ""}
 					label="Select Event"
 				>
 					{events.map((event) => (
 						<MenuItem key={event.id} value={event.id}>
-							<div style={{ display: "flex", flexDirection: "column" }}>
+							<div>
 								<Typography variant="body1">{event.name}</Typography>
 								<Typography variant="body2" color="textSecondary">
 									{formatDate(event.startTime)} - {formatDate(event.endTime)}
@@ -193,39 +219,50 @@ const ScanPage: React.FC = () => {
 					))}
 				</Select>
 			</FormControl>
-			<div className="w-full max-w-lg overflow-hidden rounded-lg shadow-lg">
-				<video ref={videoRef} autoPlay muted playsInline className="w-full" />
+
+			<div
+				style={{
+					width: "100%",
+					maxWidth: 600,
+					overflow: "hidden",
+					borderRadius: 8,
+					marginTop: 16,
+				}}
+			>
+				<video
+					ref={videoRef}
+					autoPlay
+					muted
+					playsInline
+					style={{ width: "100%" }}
+				/>
 			</div>
+
 			<Button
 				variant="outlined"
 				color="primary"
 				onClick={captureAndScanImage}
-				className="mt-4"
+				sx={{ marginTop: 2 }}
+				fullWidth
 			>
 				Scan QR Code
 			</Button>
-			{scanResult && (
-				<Snackbar open={!!scanResult && snackbarOpen} autoHideDuration={3000}>
-					<Alert severity="success" className="w-full mt-4">
-						Scan Result: {scanResult}
-					</Alert>
-				</Snackbar>
-			)}
-			{scanError && (
-				<Snackbar
-					open={!!scanError && snackbarOpen}
-					autoHideDuration={3000}
-					onClose={handleClose}
-				>
-					<Alert severity="error" className="w-full mt-4">
-						{scanError}
-					</Alert>
-				</Snackbar>
-			)}
 
-			<div className="manual-checkin-section mt-8">
-				<ManualCheckIn />
-			</div>
+			{snackbar && (
+				<Snackbar
+					open={snackbar.open}
+					autoHideDuration={3000}
+					onClose={handleSnackbarClose}
+				>
+					<Alert
+						severity={snackbar.severity}
+						onClose={handleSnackbarClose}
+						sx={{ width: "100%" }}
+					>
+						{snackbar.message}
+					</Alert>
+				</Snackbar>
+			)}
 		</Container>
 	);
 };

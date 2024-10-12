@@ -8,7 +8,6 @@ import {
 	signOut,
 	User,
 	onIdTokenChanged,
-	AuthErrorCodes,
 } from "firebase/auth";
 import { initApi, resetApi } from "@/common/api/axios";
 import { jwtDecode, JwtPayload } from "jwt-decode";
@@ -18,12 +17,8 @@ type FirebaseJwtPayload = JwtPayload & {
 	staging?: number;
 };
 
-enum AuthEnvironment {
-	PROD = "production",
-	STAGING = "staging",
-}
 enum Role {
-	NONE,
+	NONE = 0,
 	VOLUNTEER,
 	TEAM,
 	EXEC,
@@ -32,19 +27,20 @@ enum Role {
 }
 
 function extractAuthToken(token: string): string {
-	return token.startsWith("Bearer") ? token.replace("Bearer ", "") : token;
-}
-function decodeToken(token: string): FirebaseJwtPayload {
-	return jwtDecode(token) as FirebaseJwtPayload;
+	return token.startsWith("Bearer ") ? token.slice(7) : token;
 }
 
-export function getRole(token: string): Role {
+function decodeToken(token: string): FirebaseJwtPayload {
+	return jwtDecode(token);
+}
+
+function getRole(token: string): Role {
 	try {
-		const extractToken = extractAuthToken(token);
-		const decodedToken = decodeToken(extractToken);
-		const role = decodedToken[AuthEnvironment.PROD];
-		return role ? (role as Role) : Role.NONE;
-	} catch (error) {
+		const extractedToken = extractAuthToken(token);
+		const decodedToken = decodeToken(extractedToken);
+		const role = decodedToken.production ?? decodedToken.staging;
+		return role !== undefined ? (role as Role) : Role.NONE;
+	} catch {
 		return Role.NONE;
 	}
 }
@@ -54,7 +50,7 @@ type FirebaseProviderHooks = {
 	isAuthenticated: boolean;
 	user?: User;
 	token: string;
-	error: string; // Using a simple string for error messages
+	error: string;
 	loginWithEmailAndPassword(email: string, password: string): Promise<void>;
 	logout(): Promise<void>;
 };
@@ -64,33 +60,41 @@ type Props = {
 	auth: Auth;
 };
 
-const FirebaseContext = createContext<FirebaseProviderHooks>(
-	{} as FirebaseProviderHooks
-);
+const FirebaseContext = createContext<FirebaseProviderHooks | null>(null);
 
 const FirebaseProvider: React.FC<Props> = ({ children, auth }) => {
 	const [isLoading, setIsLoading] = useState(true);
-	const [user, setUser] = useState<User | undefined>();
+	const [user, setUser] = useState<User | null>(null);
 	const [token, setToken] = useState("");
 	const [error, setError] = useState("");
 
-	const handleAuthStateChange = async (user: User | null) => {
-		setIsLoading(true);
-		if (user) {
-			initApi(user);
-			setToken(token);
-			setUser(user);
-		} else {
-			setToken("");
-			setUser(undefined);
-			resetApi();
-		}
-		setIsLoading(false);
-	};
-
 	useEffect(() => {
+		const handleAuthStateChange = async (currentUser: User | null) => {
+			setIsLoading(true);
+			if (currentUser) {
+				try {
+					const currentToken = await getIdToken(currentUser, true);
+					setToken(currentToken);
+					setUser(currentUser);
+					initApi(currentUser);
+				} catch (err) {
+					console.error("Failed to get ID token:", err);
+					setError("Failed to retrieve authentication token.");
+					setToken("");
+					setUser(null);
+					resetApi();
+				}
+			} else {
+				setToken("");
+				setUser(null);
+				resetApi();
+			}
+			setIsLoading(false);
+		};
+
 		const unsubscribeAuth = onAuthStateChanged(auth, handleAuthStateChange);
 		const unsubscribeToken = onIdTokenChanged(auth, handleAuthStateChange);
+
 		return () => {
 			unsubscribeAuth();
 			unsubscribeToken();
@@ -99,41 +103,46 @@ const FirebaseProvider: React.FC<Props> = ({ children, auth }) => {
 
 	const loginWithEmailAndPassword = async (email: string, password: string) => {
 		setError("");
+		setIsLoading(true);
 		try {
 			const userCredential = await signInWithEmailAndPassword(
 				auth,
 				email,
 				password
 			);
-			const token = await getIdToken(userCredential.user);
-			if (getRole(token) < Role.TEAM) {
-				logout();
+			const currentToken = await getIdToken(userCredential.user);
+			if (getRole(currentToken) < Role.TEAM) {
+				await signOut(auth);
 				setError(
 					"You do not have the required permissions to access this app."
 				);
-				throw AuthErrorCodes.INTERNAL_ERROR;
+				setToken("");
+				setUser(null);
+				resetApi();
+				return;
 			}
-
-			handleAuthStateChange(userCredential.user);
-		} catch (error) {
-			setError((error as AuthError).message);
-			throw error;
+			// The auth state listener will handle the rest
+		} catch (err) {
+			setError((err as AuthError).message || "Login failed");
+			throw err;
+		} finally {
+			setIsLoading(false);
 		}
 	};
 
 	const logout = async () => {
 		try {
 			await signOut(auth);
-			handleAuthStateChange(null);
-		} catch (error) {
-			setError((error as AuthError).message); // Handle logout errors
+			// The auth state listener will handle the rest
+		} catch (err) {
+			setError((err as AuthError).message || "Logout failed");
 		}
 	};
 
-	const value = {
+	const value: FirebaseProviderHooks = {
 		isLoading,
-		isAuthenticated: !!user && error === "",
-		user,
+		isAuthenticated: !!user && !error,
+		user: user || undefined,
 		token,
 		error,
 		loginWithEmailAndPassword,
@@ -147,5 +156,12 @@ const FirebaseProvider: React.FC<Props> = ({ children, auth }) => {
 	);
 };
 
-export const useFirebase = () => useContext(FirebaseContext);
+export const useFirebase = () => {
+	const context = useContext(FirebaseContext);
+	if (!context) {
+		throw new Error("useFirebase must be used within a FirebaseProvider");
+	}
+	return context;
+};
+
 export default FirebaseProvider;

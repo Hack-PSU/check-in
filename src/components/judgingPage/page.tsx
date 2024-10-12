@@ -13,6 +13,7 @@ import {
   Slider,
   Paper,
   Grid,
+  SelectChangeEvent,
 } from "@mui/material";
 import {
   getAllScoresByJudge,
@@ -87,10 +88,8 @@ const JudgingPage: React.FC = () => {
     }
   }, [selectedProjectId, projects]);
 
-  const handleProjectChange = (
-    event: React.ChangeEvent<{ value: unknown }>
-  ) => {
-    setSelectedProjectId(event.target.value as number);
+  const handleProjectChange = (event: SelectChangeEvent<number>) => {
+    setSelectedProjectId(Number(event.target.value));
   };
 
   const handleScoreChange = (

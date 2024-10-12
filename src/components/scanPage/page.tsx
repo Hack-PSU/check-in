@@ -11,6 +11,7 @@ import {
 	MenuItem,
 	InputLabel,
 	Snackbar,
+  SelectChangeEvent,
 } from "@mui/material";
 import jsQR from "jsqr";
 import {
@@ -99,7 +100,7 @@ const ScanPage: React.FC = () => {
 		}
 	}, [user, isLoading, logout, router]);
 
-	const handleEventChange = (event: React.ChangeEvent<{ value: unknown }>) => {
+	const handleEventChange = (event: SelectChangeEvent<string>) => {
 		setSelectedEvent(event.target.value as string);
 	};
 

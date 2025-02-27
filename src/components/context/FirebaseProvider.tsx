@@ -1,21 +1,27 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, {
+	createContext,
+	useContext,
+	useEffect,
+	useState,
+	useCallback,
+	useMemo,
+	FC,
+} from "react";
 import {
 	Auth,
-	AuthError,
+	User,
 	getIdToken,
 	onAuthStateChanged,
-	signInWithEmailAndPassword,
-	signOut,
-	User,
 	onIdTokenChanged,
+	signInWithEmailAndPassword,
+	createUserWithEmailAndPassword,
+	signInWithPopup,
+	signOut,
+	sendPasswordResetEmail,
+	GoogleAuthProvider,
+	GithubAuthProvider,
 } from "firebase/auth";
-import { initApi, resetApi } from "@/common/api/axios";
-import { jwtDecode, JwtPayload } from "jwt-decode";
-
-type FirebaseJwtPayload = JwtPayload & {
-	production?: number;
-	staging?: number;
-};
+import { jwtDecode } from "jwt-decode";
 
 enum Role {
 	NONE = 0,
@@ -26,74 +32,93 @@ enum Role {
 	FINANCE,
 }
 
+const MINIMUM_ROLE = Role.NONE; // Only users with a role >= TEAM may access the app
+
+// Helpers to decode the JWT and extract the role claim.
+// (Assumes your custom claim is stored under "production" or "staging".)
 function extractAuthToken(token: string): string {
 	return token.startsWith("Bearer ") ? token.slice(7) : token;
 }
 
-function decodeToken(token: string): FirebaseJwtPayload {
-	return jwtDecode(token);
-}
-
-function getRole(token: string): Role {
+function getRole(token: string): number {
 	try {
 		const extractedToken = extractAuthToken(token);
-		const decodedToken = decodeToken(extractedToken);
-		const role = decodedToken.production ?? decodedToken.staging;
-		return role !== undefined ? (role as Role) : Role.NONE;
+		const decoded: any = jwtDecode(extractedToken);
+		// Try to read the role from either "production" or "staging"
+		const role = decoded.production ?? decoded.staging;
+		return role !== undefined ? role : Role.NONE;
 	} catch {
 		return Role.NONE;
 	}
 }
 
-type FirebaseProviderHooks = {
+// Public context type – notice we are not using custom error types here.
+type FirebaseContextType = {
 	isLoading: boolean;
 	isAuthenticated: boolean;
 	user?: User;
 	token: string;
 	error: string;
 	loginWithEmailAndPassword(email: string, password: string): Promise<void>;
+	signUpWithEmailAndPassword(email: string, password: string): Promise<void>;
+	signInWithGoogle(): Promise<void>;
+	signInWithGithub(): Promise<void>;
+	resetPassword(email: string): Promise<void>;
 	logout(): Promise<void>;
 };
+
+const FirebaseContext = createContext<FirebaseContextType | null>(null);
 
 type Props = {
 	children: React.ReactNode;
 	auth: Auth;
 };
 
-const FirebaseContext = createContext<FirebaseProviderHooks | null>(null);
-
-const FirebaseProvider: React.FC<Props> = ({ children, auth }) => {
-	const [isLoading, setIsLoading] = useState(true);
+const FirebaseProvider: FC<Props> = ({ children, auth }) => {
+	const [isLoading, setIsLoading] = useState<boolean>(true);
 	const [user, setUser] = useState<User | null>(null);
-	const [token, setToken] = useState("");
-	const [error, setError] = useState("");
+	const [token, setToken] = useState<string>("");
+	const [error, setError] = useState<string>("");
 
+	// Listen for auth and token changes.
 	useEffect(() => {
-		const handleAuthStateChange = async (currentUser: User | null) => {
+		// This handler is used by both onAuthStateChanged and onIdTokenChanged.
+		const handleAuthChange = async (currentUser: User | null) => {
 			setIsLoading(true);
 			if (currentUser) {
 				try {
 					const currentToken = await getIdToken(currentUser, true);
-					setToken(currentToken);
-					setUser(currentUser);
-					initApi(currentUser);
+					// Save the token and check if the user has sufficient permissions.
+					if (getRole(currentToken) < MINIMUM_ROLE) {
+						// Insufficient permissions: sign out and show an error.
+						await signOut(auth);
+						setError(
+							"You do not have the required permissions to access this app."
+						);
+						setUser(null);
+						setToken("");
+					} else {
+						setToken(currentToken);
+						setUser(currentUser);
+						setError("");
+					}
 				} catch (err) {
-					console.error("Failed to get ID token:", err);
+					console.error("Failed to retrieve ID token:", err);
 					setError("Failed to retrieve authentication token.");
-					setToken("");
 					setUser(null);
-					resetApi();
+					setToken("");
 				}
 			} else {
-				setToken("");
+				// User signed out.
 				setUser(null);
-				resetApi();
+				setToken("");
+				setError("");
 			}
 			setIsLoading(false);
 		};
 
-		const unsubscribeAuth = onAuthStateChanged(auth, handleAuthStateChange);
-		const unsubscribeToken = onIdTokenChanged(auth, handleAuthStateChange);
+		const unsubscribeAuth = onAuthStateChanged(auth, handleAuthChange);
+		const unsubscribeToken = onIdTokenChanged(auth, handleAuthChange);
 
 		return () => {
 			unsubscribeAuth();
@@ -101,53 +126,170 @@ const FirebaseProvider: React.FC<Props> = ({ children, auth }) => {
 		};
 	}, [auth]);
 
-	const loginWithEmailAndPassword = async (email: string, password: string) => {
+	// Login using email and password.
+	const loginWithEmailAndPassword = useCallback(
+		async (email: string, password: string) => {
+			setError("");
+			setIsLoading(true);
+			try {
+				const userCredential = await signInWithEmailAndPassword(
+					auth,
+					email,
+					password
+				);
+				const currentToken = await getIdToken(userCredential.user);
+				if (getRole(currentToken) < MINIMUM_ROLE) {
+					await signOut(auth);
+					setError(
+						"You do not have the required permissions to access this app."
+					);
+					return;
+				}
+				// The auth state listener will update the state.
+			} catch (err: any) {
+				setError(err.message || "Login failed");
+				throw err;
+			} finally {
+				setIsLoading(false);
+			}
+		},
+		[auth]
+	);
+
+	// Sign up a new user.
+	const signUpWithEmailAndPassword = useCallback(
+		async (email: string, password: string) => {
+			setError("");
+			setIsLoading(true);
+			try {
+				const userCredential = await createUserWithEmailAndPassword(
+					auth,
+					email,
+					password
+				);
+				const currentToken = await getIdToken(userCredential.user);
+				if (getRole(currentToken) < MINIMUM_ROLE) {
+					await signOut(auth);
+					setError(
+						"You do not have the required permissions to access this app."
+					);
+					return;
+				}
+				// The auth state listener will update the state.
+			} catch (err: any) {
+				setError(err.message || "Sign-up failed");
+				throw err;
+			} finally {
+				setIsLoading(false);
+			}
+		},
+		[auth]
+	);
+
+	// Sign in with Google.
+	const signInWithGoogle = useCallback(async () => {
 		setError("");
 		setIsLoading(true);
 		try {
-			const userCredential = await signInWithEmailAndPassword(
-				auth,
-				email,
-				password
-			);
+			const provider = new GoogleAuthProvider();
+			const userCredential = await signInWithPopup(auth, provider);
 			const currentToken = await getIdToken(userCredential.user);
-			if (getRole(currentToken) < Role.TEAM) {
+			if (getRole(currentToken) < MINIMUM_ROLE) {
 				await signOut(auth);
 				setError(
 					"You do not have the required permissions to access this app."
 				);
-				setToken("");
-				setUser(null);
-				resetApi();
 				return;
 			}
-			// The auth state listener will handle the rest
-		} catch (err) {
-			setError((err as AuthError).message || "Login failed");
+			// The auth state listener will update the state.
+		} catch (err: any) {
+			setError(err.message || "Google sign-in failed");
 			throw err;
 		} finally {
 			setIsLoading(false);
 		}
-	};
+	}, [auth]);
 
-	const logout = async () => {
+	// Sign in with GitHub.
+	const signInWithGithub = useCallback(async () => {
+		setError("");
+		setIsLoading(true);
+		try {
+			const provider = new GithubAuthProvider();
+			const userCredential = await signInWithPopup(auth, provider);
+			const currentToken = await getIdToken(userCredential.user);
+			if (getRole(currentToken) < MINIMUM_ROLE) {
+				await signOut(auth);
+				setError(
+					"You do not have the required permissions to access this app."
+				);
+				return;
+			}
+			// The auth state listener will update the state.
+		} catch (err: any) {
+			setError(err.message || "GitHub sign-in failed");
+			throw err;
+		} finally {
+			setIsLoading(false);
+		}
+	}, [auth]);
+
+	// Send a password reset email.
+	const resetPassword = useCallback(
+		async (email: string) => {
+			setError("");
+			try {
+				await sendPasswordResetEmail(auth, email);
+			} catch (err: any) {
+				setError(err.message || "Password reset failed");
+				throw err;
+			}
+		},
+		[auth]
+	);
+
+	// Log out.
+	const logout = useCallback(async () => {
+		setError("");
+		setIsLoading(true);
 		try {
 			await signOut(auth);
-			// The auth state listener will handle the rest
-		} catch (err) {
-			setError((err as AuthError).message || "Logout failed");
+			// The auth state listener will update the state.
+		} catch (err: any) {
+			setError(err.message || "Logout failed");
+			throw err;
+		} finally {
+			setIsLoading(false);
 		}
-	};
+	}, [auth]);
 
-	const value: FirebaseProviderHooks = {
-		isLoading,
-		isAuthenticated: !!user && !error,
-		user: user || undefined,
-		token,
-		error,
-		loginWithEmailAndPassword,
-		logout,
-	};
+	const value = useMemo(
+		() => ({
+			isLoading,
+			isAuthenticated: !!user && !error,
+			user: user || undefined,
+			token,
+			error,
+			loginWithEmailAndPassword,
+			signUpWithEmailAndPassword,
+			signInWithGoogle,
+			signInWithGithub,
+			resetPassword,
+			logout,
+		}),
+		[
+			isLoading,
+			user,
+			token,
+			error,
+			loginWithEmailAndPassword,
+			signUpWithEmailAndPassword,
+			signInWithGoogle,
+			signInWithGithub,
+			resetPassword,
+			logout,
+		]
+	);
 
 	return (
 		<FirebaseContext.Provider value={value}>

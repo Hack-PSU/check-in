@@ -11,34 +11,60 @@ import {
 	MenuItem,
 	InputLabel,
 	Snackbar,
-  SelectChangeEvent,
+	SelectChangeEvent,
 } from "@mui/material";
 import jsQR from "jsqr";
-import {
-	getAllEvents,
-	checkInUsersByEvent,
-	EventEntity,
-	EventType,
-} from "@/common/api";
-import { useFirebase } from "@/components/context";
-import ManualCheckIn from "@/components/manualCheckIn/page";
 import { useRouter } from "next/navigation";
+
+// Firebase/Auth context (or any other user-auth system)
+import { useFirebase } from "@/components/context";
+
+// React Query hooks for events
+import { useAllEvents, useCheckInEvent } from "@/common/api/event";
+import { EventEntityResponse, EventType } from "@/common/api/event/entity";
+import { useActiveHackathonForStatic } from "@/common/api/hackathon/hook";
+
+// Optional: If your backend expects extra fields in the payload
+// import { CreateScanEntity } from "@/common/api/events/entity";
 
 const ScanPage: React.FC = () => {
 	const videoRef = useRef<HTMLVideoElement>(null);
 	const router = useRouter();
-	const [events, setEvents] = useState<EventEntity[]>([]);
+	const { user, isLoading, logout } = useFirebase();
+
+	// Selected event from the dropdown
 	const [selectedEvent, setSelectedEvent] = useState<string>("");
+
+	// Snackbar for success/error messages
 	const [snackbar, setSnackbar] = useState<{
 		open: boolean;
 		message: string;
 		severity: "success" | "error";
 	} | null>(null);
-	const { user, isLoading, logout } = useFirebase();
 
-	// Start camera on component mount and stop on unmount
+	// 1) Fetch all events via React Query
+	const {
+		data: eventsData,
+		isLoading: eventsLoading,
+		isError: eventsError,
+	} = useAllEvents();
+
+	const { data: hackathonData } = useActiveHackathonForStatic();
+
+	// 2) Mutation hook for check-in
+	const { mutate: checkInMutate } = useCheckInEvent();
+
+	// If user is not logged in, redirect to auth page
 	useEffect(() => {
-		let stream: MediaStream;
+		if (!user && !isLoading) {
+			logout();
+			router.push("/auth");
+		}
+	}, [user, isLoading, logout, router]);
+
+	// Start camera on mount, stop on unmount
+	useEffect(() => {
+		let stream: MediaStream | null = null;
 
 		const startCamera = async () => {
 			try {
@@ -67,38 +93,21 @@ const ScanPage: React.FC = () => {
 		};
 	}, []);
 
-	// Fetch events on component mount
+	// Once events load, pick the default event
 	useEffect(() => {
-		const fetchEvents = async () => {
-			try {
-				const fetchedEvents = await getAllEvents();
-				setEvents(fetchedEvents.data);
-				if (fetchedEvents.data.length > 0) {
-					const checkinEvent = fetchedEvents.data.find(
-						(event) => event.type === EventType.CHECKIN
-					);
-					setSelectedEvent(checkinEvent?.id || fetchedEvents.data[0].id);
-				}
-			} catch (error) {
-				console.error("Error fetching events", error);
-				setSnackbar({
-					open: true,
-					message: "Error fetching events",
-					severity: "error",
-				});
-			}
-		};
-
-		fetchEvents();
-	}, []);
-
-	// Redirect if user is signed out
-	useEffect(() => {
-		if (!user && !isLoading) {
-			logout();
-			router.push("/auth");
+		if (
+			!eventsLoading &&
+			eventsData &&
+			eventsData.length > 0 &&
+			!selectedEvent
+		) {
+			// Optionally auto-select the first event of type "checkIn", or else the first in the list
+			const checkInEvent = eventsData.find(
+				(evt) => evt.type === EventType.checkIn
+			);
+			setSelectedEvent(checkInEvent?.id || eventsData[0].id);
 		}
-	}, [user, isLoading, logout, router]);
+	}, [eventsData, eventsLoading, selectedEvent]);
 
 	const handleEventChange = (event: SelectChangeEvent<string>) => {
 		setSelectedEvent(event.target.value as string);
@@ -112,8 +121,14 @@ const ScanPage: React.FC = () => {
 		setSnackbar(null);
 	};
 
-	const checkInUser = useCallback(
-		async (userId: string) => {
+	// Check-in logic using the mutation hook
+	const handleCheckIn = useCallback(
+		(scannedUserId: string) => {
+			if (!user) {
+				logout();
+				router.push("/auth");
+				return;
+			}
 			if (!selectedEvent) {
 				setSnackbar({
 					open: true,
@@ -122,39 +137,60 @@ const ScanPage: React.FC = () => {
 				});
 				return;
 			}
-			try {
-				if (!user) {
-					await logout();
-					router.push("/auth");
-					return;
-				}
 
-				await checkInUsersByEvent(
-					{ organizerId: user.uid },
-					{ eventId: selectedEvent, userId }
-				);
-
-				const eventName =
-					events.find((event) => event.id === selectedEvent)?.name ||
-					selectedEvent;
-
+			if (!hackathonData) {
 				setSnackbar({
 					open: true,
-					message: `User ${userId} checked in successfully to event ${eventName}`,
-					severity: "success",
-				});
-			} catch (error) {
-				console.error("Check-in failed", error);
-				setSnackbar({
-					open: true,
-					message: "Check-in failed",
+					message: "No active hackathon found",
 					severity: "error",
 				});
+				return;
 			}
+
+			// Call our mutation
+			checkInMutate(
+				{
+					id: selectedEvent, // event ID
+					userId: scannedUserId, // user ID from QR code
+					data: {
+						hackathonId: hackathonData.id,
+						organizerId: user.uid, // or any other data your backend expects
+					},
+				},
+				{
+					onSuccess: () => {
+						const eventName =
+							eventsData?.find((evt) => evt.id === selectedEvent)?.name ||
+							selectedEvent;
+						setSnackbar({
+							open: true,
+							message: `User ${scannedUserId} checked in successfully to ${eventName}`,
+							severity: "success",
+						});
+					},
+					onError: (err) => {
+						console.error("Check-in failed", err);
+						setSnackbar({
+							open: true,
+							message: "Check-in failed",
+							severity: "error",
+						});
+					},
+				}
+			);
 		},
-		[selectedEvent, user, events, logout, router]
+		[
+			user,
+			selectedEvent,
+			hackathonData,
+			checkInMutate,
+			logout,
+			router,
+			eventsData,
+		]
 	);
 
+	// Capture current video frame & scan for QR code
 	const captureAndScanImage = async () => {
 		if (!videoRef.current) return;
 
@@ -169,8 +205,9 @@ const ScanPage: React.FC = () => {
 			const code = jsQR(imageData.data, imageData.width, imageData.height);
 
 			if (code) {
+				// Example: your QR code might look like "HACKPSU_userId"
 				const userId = code.data.replace("HACKPSU_", "");
-				await checkInUser(userId);
+				handleCheckIn(userId);
 			} else {
 				setSnackbar({
 					open: true,
@@ -187,6 +224,7 @@ const ScanPage: React.FC = () => {
 		}
 	};
 
+	// Simple time formatting
 	const formatDate = (time: number): string => {
 		return new Date(time).toLocaleTimeString("en-US", {
 			hour: "2-digit",
@@ -194,12 +232,31 @@ const ScanPage: React.FC = () => {
 		});
 	};
 
+	// Handle loading / error states for events
+	if (eventsLoading) {
+		return (
+			<Container maxWidth="sm">
+				<Typography>Loading events...</Typography>
+			</Container>
+		);
+	}
+	if (eventsError) {
+		return (
+			<Container maxWidth="sm">
+				<Alert severity="error">Error loading events. Please try again.</Alert>
+			</Container>
+		);
+	}
+
+	const events = eventsData ?? [];
+
 	return (
 		<Container maxWidth="sm" sx={{ paddingTop: 4, paddingBottom: 4 }}>
 			<Typography variant="h5" component="h1" gutterBottom align="center">
 				QR Code Scanner
 			</Typography>
 
+			{/* Event Select */}
 			<FormControl fullWidth margin="normal">
 				<InputLabel id="event-select-label">Select Event</InputLabel>
 				<Select
@@ -221,6 +278,7 @@ const ScanPage: React.FC = () => {
 				</Select>
 			</FormControl>
 
+			{/* Camera View */}
 			<div
 				style={{
 					width: "100%",
@@ -239,6 +297,7 @@ const ScanPage: React.FC = () => {
 				/>
 			</div>
 
+			{/* Scan Button */}
 			<Button
 				variant="outlined"
 				color="primary"
@@ -249,6 +308,7 @@ const ScanPage: React.FC = () => {
 				Scan QR Code
 			</Button>
 
+			{/* Snackbar */}
 			{snackbar && (
 				<Snackbar
 					open={snackbar.open}

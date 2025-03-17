@@ -43,9 +43,9 @@ const criteriaLabels: Record<CriteriaType, string> = {
 	implementation: "Implementation",
 	clarity: "Clarity",
 	growth: "Knowledge and Growth",
-	challenge1: "Challenge 1",
-	challenge2: "Challenge 2",
-	challenge3: "Challenge 3",
+	challenge1: "Machine Learning",
+	challenge2: "Entrepreneurship",
+	challenge3: "Timeless Tech",
 };
 
 const JudgingPage: React.FC = () => {

@@ -12,6 +12,7 @@ import {
 	deleteProject,
 	getProjectBreakdown,
 	assignJudging,
+	assignAdditionalJudging,
 } from "./provider";
 import {
 	ScoreEntity,
@@ -139,5 +140,15 @@ export function useProjectBreakdown() {
 export function useAssignJudging() {
 	return useMutation({
 		mutationFn: (data: JudgingAssignmentEntity) => assignJudging(data),
+	});
+}
+
+export function useAssignAdditonalJudging() {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: (judgeId: string) => assignAdditionalJudging(judgeId),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: judgingQueryKeys.allScores });
+		},
 	});
 }

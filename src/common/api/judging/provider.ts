@@ -115,3 +115,12 @@ export const assignJudging = async (
 		body: JSON.stringify(data),
 	});
 };
+
+// Judging additional endpoints
+export const assignAdditionalJudging = async (
+	judgeId: string
+): Promise<any> => {
+	await apiFetch<void>(`/judging/assign/${judgeId}`, {
+		method: "POST",
+	});
+};

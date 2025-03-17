@@ -21,6 +21,7 @@ import {
 	useAllProjects,
 	useCreateScore,
 	useUpdateScore,
+	useAssignAdditonalJudging, // new hook import
 	ScoreCreateEntity,
 	ScoreUpdateEntity,
 } from "@/common/api/judging";
@@ -65,6 +66,7 @@ const JudgingPage: React.FC = () => {
 
 	const { mutate: createScoreMutate } = useCreateScore();
 	const { mutate: updateScoreMutate } = useUpdateScore();
+	const { mutate: assignAdditionalJudgingMutate } = useAssignAdditonalJudging(); // new mutation hook
 
 	// Initialize assigned projects: only include those that are not yet submitted.
 	useEffect(() => {
@@ -260,13 +262,26 @@ const JudgingPage: React.FC = () => {
 					<Typography align="center">Loading data...</Typography>
 				)}
 
-				{/* If there are no unsubmitted projects, show a completion message */}
+				{/* If there are no unsubmitted projects, show a completion message with a button to get additional assignments */}
 				{!loadingProjects &&
 					!loadingScores &&
 					assignedProjects.length === 0 && (
-						<Typography align="center">
-							You have submitted all your projects.
-						</Typography>
+						<Box sx={{ textAlign: "center", mt: 4 }}>
+							<Typography align="center">
+								You have submitted all your projects.
+							</Typography>
+							<Button
+								variant="outlined"
+								sx={{ mt: 2 }}
+								onClick={() => {
+									if (user?.uid) {
+										assignAdditionalJudgingMutate(user.uid);
+									}
+								}}
+							>
+								Get Additional Assignments
+							</Button>
+						</Box>
 					)}
 
 				{assignedProjects.length > 0 && (

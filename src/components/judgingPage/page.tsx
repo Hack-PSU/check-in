@@ -50,7 +50,6 @@ const criteriaLabels: Record<CriteriaType, string> = {
 
 const JudgingPage: React.FC = () => {
 	const { user } = useFirebase();
-	// Project IDs assigned to this judge (based on existing score records)
 	const [assignedProjects, setAssignedProjects] = useState<number[]>([]);
 	const [selectedProjectId, setSelectedProjectId] = useState<number | "">("");
 	const [scoreValues, setScoreValues] = useState<ScoreUpdateEntity>({});
@@ -67,10 +66,7 @@ const JudgingPage: React.FC = () => {
 	const { mutate: createScoreMutate } = useCreateScore();
 	const { mutate: updateScoreMutate } = useUpdateScore();
 
-	/**
-	 * Once projects and scores are fetched, set the assigned projects.
-	 * We assume that each assigned project already has a score record (even if not yet submitted).
-	 */
+	// Initialize assigned projects: only include those that are not yet submitted.
 	useEffect(() => {
 		if (
 			!loadingProjects &&
@@ -79,59 +75,39 @@ const JudgingPage: React.FC = () => {
 			allProjects &&
 			allScores
 		) {
-			// Filter out scores belonging to the current judge
 			const judgeScores = allScores.filter(
-				(score) => score.judge?.id === user.uid
+				(score) => score.judge?.id === user.uid && !score.submitted
 			);
-			// Extract unique project IDs from those scores
-			const judgeProjectIds = Array.from(
+			const projectIds = Array.from(
 				new Set(judgeScores.map((score) => score.project.id))
 			);
-			setAssignedProjects(judgeProjectIds);
-
-			// Auto-select the first project if available.
-			setSelectedProjectId(
-				judgeProjectIds.length > 0 ? judgeProjectIds[0] : ""
-			);
+			setAssignedProjects(projectIds);
+			if (projectIds.length > 0) {
+				setSelectedProjectId(projectIds[0]);
+			} else {
+				setSelectedProjectId("");
+			}
 		}
 	}, [user, allProjects, allScores, loadingProjects, loadingScores]);
 
-	/**
-	 * Whenever the selected project changes, load its existing score (if any)
-	 * or initialize default score values.
-	 */
+	// Load the current score (or initialize with defaults) when the selected project changes.
 	useEffect(() => {
 		if (selectedProjectId !== "" && !loadingScores && user?.uid && allScores) {
 			const existingScore = allScores.find(
 				(score) =>
 					score.judge?.id === user.uid && score.project.id === selectedProjectId
 			);
-
-			if (existingScore) {
-				setScoreValues({
-					creativity: existingScore.creativity ?? 0,
-					technical: existingScore.technical ?? 0,
-					implementation: existingScore.implementation ?? 0,
-					clarity: existingScore.clarity ?? 0,
-					growth: existingScore.growth ?? 0,
-					challenge1: existingScore.challenge1 ?? 0,
-					challenge2: existingScore.challenge2 ?? 0,
-					challenge3: existingScore.challenge3 ?? 0,
-					submitted: existingScore.submitted ?? false,
-				});
-			} else {
-				setScoreValues({
-					creativity: 0,
-					technical: 0,
-					implementation: 0,
-					clarity: 0,
-					growth: 0,
-					challenge1: 0,
-					challenge2: 0,
-					challenge3: 0,
-					submitted: false,
-				});
-			}
+			setScoreValues({
+				creativity: existingScore?.creativity ?? 0,
+				technical: existingScore?.technical ?? 0,
+				implementation: existingScore?.implementation ?? 0,
+				clarity: existingScore?.clarity ?? 0,
+				growth: existingScore?.growth ?? 0,
+				challenge1: existingScore?.challenge1 ?? 0,
+				challenge2: existingScore?.challenge2 ?? 0,
+				challenge3: existingScore?.challenge3 ?? 0,
+				submitted: existingScore?.submitted ?? false,
+			});
 		}
 	}, [selectedProjectId, allScores, loadingScores, user?.uid]);
 
@@ -143,67 +119,29 @@ const JudgingPage: React.FC = () => {
 		criteria: CriteriaType,
 		value: number | number[]
 	) => {
-		setScoreValues((prev) => ({
-			...prev,
-			[criteria]: value as number,
-		}));
+		setScoreValues((prev) => ({ ...prev, [criteria]: value as number }));
 	};
 
 	const handleSnackbarClose = () => {
 		setSnackbar(null);
 	};
 
-	// List of all criteria to be scored.
-	const allCriteria = Object.keys(criteriaLabels) as CriteriaType[];
+	const allCriteria: CriteriaType[] = [
+		"creativity",
+		"technical",
+		"implementation",
+		"clarity",
+		"growth",
+		"challenge1",
+		"challenge2",
+		"challenge3",
+	];
 
 	const validateScores = () =>
 		allCriteria.every(
 			(criteria) =>
 				typeof scoreValues[criteria] === "number" && scoreValues[criteria]! >= 0
 		);
-
-	/**
-	 * Move to the next project that has not yet been submitted.
-	 * It searches forward in the assignedProjects array,
-	 * and if not found, it wraps around to check from the beginning.
-	 * If every project is submitted, it clears the selection.
-	 */
-	const moveToNextProject = () => {
-		if (selectedProjectId === "") return;
-
-		const currentIndex = assignedProjects.indexOf(selectedProjectId as number);
-		// Look for an unsubmitted project in the projects after the current one.
-		const nextProjectId = assignedProjects
-			.slice(currentIndex + 1)
-			.find((projectId) => {
-				const score = allScores?.find(
-					(score) =>
-						score.judge?.id === user?.uid && score.project.id === projectId
-				);
-				return score && !score.submitted;
-			});
-
-		if (nextProjectId !== undefined) {
-			setSelectedProjectId(nextProjectId);
-			return;
-		}
-
-		// If not found after current index, check from the beginning.
-		const firstUnsubmitted = assignedProjects.find((projectId) => {
-			const score = allScores?.find(
-				(score) =>
-					score.judge?.id === user?.uid && score.project.id === projectId
-			);
-			return score && !score.submitted;
-		});
-
-		if (firstUnsubmitted !== undefined) {
-			setSelectedProjectId(firstUnsubmitted);
-		} else {
-			// All projects have been submitted.
-			setSelectedProjectId("");
-		}
-	};
 
 	const handleSubmit = () => {
 		if (!user?.uid || selectedProjectId === "") return;
@@ -217,27 +155,31 @@ const JudgingPage: React.FC = () => {
 			return;
 		}
 
-		// Determine if a score record already exists for this project.
-		const existingScore = allScores?.find(
-			(score) =>
-				score.judge?.id === user.uid && score.project.id === selectedProjectId
-		);
-
-		// Build payload with the submitted scores.
+		// Prepare payload with submitted scores.
 		const payload: ScoreCreateEntity | ScoreUpdateEntity = {
 			...scoreValues,
 			submitted: true,
 		};
 
-		const onSuccess = (successMessage: string) => {
-			setSnackbar({
-				open: true,
-				message: successMessage,
-				severity: "success",
-			});
-			// Move to the next unsubmitted project after successful submission.
-			moveToNextProject();
+		const onSuccess = (message: string) => {
+			setSnackbar({ open: true, message, severity: "success" });
+			// Remove the submitted project from the list.
+			const newProjects = assignedProjects.filter(
+				(id) => id !== selectedProjectId
+			);
+			setAssignedProjects(newProjects);
+			// If there are any remaining projects, select the first one.
+			if (newProjects.length > 0) {
+				setSelectedProjectId(newProjects[0]);
+			} else {
+				setSelectedProjectId("");
+			}
 		};
+
+		const existingScore = allScores?.find(
+			(score) =>
+				score.judge?.id === user.uid && score.project.id === selectedProjectId
+		);
 
 		if (existingScore) {
 			updateScoreMutate(
@@ -273,21 +215,39 @@ const JudgingPage: React.FC = () => {
 		}
 	};
 
-	const renderCriteria = () =>
-		allCriteria.map((criteriaKey) => (
-			<Box key={criteriaKey} sx={{ mb: 4 }}>
-				<Typography variant="h6">{criteriaLabels[criteriaKey]}</Typography>
-				<Slider
-					value={scoreValues[criteriaKey] ?? 0}
-					onChange={(_, value) => handleScoreChange(criteriaKey, value)}
-					step={1}
-					marks
-					min={0}
-					max={5}
-					valueLabelDisplay="on"
-				/>
-			</Box>
-		));
+	// Render criteria sliders.
+	// For criteria starting with "challenge", only show the slider if the selected project's
+	// categories include that specific challenge.
+	const renderCriteria = () => {
+		const selectedProject = allProjects?.find(
+			(proj) => proj.id === selectedProjectId
+		);
+		const projectChallenges = selectedProject?.categories
+			? selectedProject.categories.split(",").map((c: string) => c.trim())
+			: [];
+
+		return allCriteria
+			.filter((criteria) => {
+				if (criteria.startsWith("challenge")) {
+					return projectChallenges.includes(criteria);
+				}
+				return true;
+			})
+			.map((criteria) => (
+				<Box key={criteria} sx={{ mb: 4 }}>
+					<Typography variant="h6">{criteriaLabels[criteria]}</Typography>
+					<Slider
+						value={scoreValues[criteria] ?? 0}
+						onChange={(_, value) => handleScoreChange(criteria, value)}
+						step={1}
+						marks
+						min={0}
+						max={5}
+						valueLabelDisplay="on"
+					/>
+				</Box>
+			));
+	};
 
 	return (
 		<Container maxWidth="md" sx={{ mt: 4 }}>
@@ -300,11 +260,12 @@ const JudgingPage: React.FC = () => {
 					<Typography align="center">Loading data...</Typography>
 				)}
 
+				{/* If there are no unsubmitted projects, show a completion message */}
 				{!loadingProjects &&
 					!loadingScores &&
-					(!assignedProjects || assignedProjects.length === 0) && (
+					assignedProjects.length === 0 && (
 						<Typography align="center">
-							You have no assigned projects or all have been judged.
+							You have submitted all your projects.
 						</Typography>
 					)}
 
@@ -319,9 +280,10 @@ const JudgingPage: React.FC = () => {
 								label="Select Project"
 							>
 								{assignedProjects.map((projectId) => {
-									const projectName =
-										allProjects?.find((proj) => proj.id === projectId)?.name ||
-										`Project #${projectId}`;
+									const project = allProjects?.find(
+										(proj) => proj.id === projectId
+									);
+									const projectName = project?.name || `Project #${projectId}`;
 									return (
 										<MenuItem key={projectId} value={projectId}>
 											{projectName}

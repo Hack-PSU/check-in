@@ -39,7 +39,7 @@ type CriteriaType =
 
 const criteriaLabels: Record<CriteriaType, string> = {
 	creativity: "Creativity and Originality",
-	technical: "Technical Complexity / Impact",
+	technical: "Impact",
 	implementation: "Implementation",
 	clarity: "Clarity",
 	growth: "Knowledge and Growth",

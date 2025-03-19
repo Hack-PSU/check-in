@@ -127,7 +127,7 @@ const ManualCheckIn: React.FC = () => {
 					console.error("Check-in failed", err);
 					setSnackbar({
 						open: true,
-						message: "Check-in failed",
+						message: `Error checking in user: ${err.message}`,
 						severity: "error",
 					});
 				},

@@ -13,6 +13,9 @@ import {
 	Slider,
 	Paper,
 	Grid,
+	TextField,
+	Tabs,
+	Tab,
 } from "@mui/material";
 import { SelectChangeEvent } from "@mui/material";
 
@@ -21,7 +24,7 @@ import {
 	useAllProjects,
 	useCreateScore,
 	useUpdateScore,
-	useAssignAdditonalJudging, // new hook import
+	useAssignAdditonalJudging,
 	ScoreCreateEntity,
 	ScoreUpdateEntity,
 } from "@/common/api/judging";
@@ -49,8 +52,11 @@ const criteriaLabels: Record<CriteriaType, string> = {
 	challenge3: "Timeless Tech",
 };
 
+type Mode = "judging" | "history";
+
 const JudgingPage: React.FC = () => {
 	const { user } = useFirebase();
+	const [mode, setMode] = useState<Mode>("judging");
 	const [assignedProjects, setAssignedProjects] = useState<number[]>([]);
 	const [selectedProjectId, setSelectedProjectId] = useState<number | "">("");
 	const [scoreValues, setScoreValues] = useState<ScoreUpdateEntity>({});
@@ -60,15 +66,31 @@ const JudgingPage: React.FC = () => {
 		severity: "success" | "error";
 	} | null>(null);
 
+	// State to store notes per project.
+	const [notesMap, setNotesMap] = useState<{ [key: number]: string }>({});
+
 	const { data: allProjects, isLoading: loadingProjects } = useAllProjects();
 	const { data: allScores, isLoading: loadingScores } = useAllScores();
 	const { data: hackathonData } = useActiveHackathonForStatic();
 
 	const { mutate: createScoreMutate } = useCreateScore();
 	const { mutate: updateScoreMutate } = useUpdateScore();
-	const { mutate: assignAdditionalJudgingMutate } = useAssignAdditonalJudging(); // new mutation hook
+	const { mutate: assignAdditionalJudgingMutate } = useAssignAdditonalJudging();
 
-	// Initialize assigned projects: only include those that are not yet submitted.
+	// Load saved notes from local storage.
+	useEffect(() => {
+		const savedNotes = localStorage.getItem("judgingNotes");
+		if (savedNotes) {
+			try {
+				const parsed = JSON.parse(savedNotes);
+				setNotesMap(parsed);
+			} catch (error) {
+				console.error("Error parsing saved notes", error);
+			}
+		}
+	}, []);
+
+	// Whenever the mode or score data changes, update the list of assigned projects.
 	useEffect(() => {
 		if (
 			!loadingProjects &&
@@ -77,11 +99,16 @@ const JudgingPage: React.FC = () => {
 			allProjects &&
 			allScores
 		) {
-			const judgeScores = allScores.filter(
-				(score) => score.judge?.id === user.uid && !score.submitted
-			);
+			const filteredScores = allScores.filter((score) => {
+				// In Judging mode, show only unsubmitted projects.
+				// In History mode, show only submitted projects.
+				return (
+					score.judge?.id === user.uid &&
+					(mode === "judging" ? !score.submitted : score.submitted)
+				);
+			});
 			const projectIds = Array.from(
-				new Set(judgeScores.map((score) => score.project.id))
+				new Set(filteredScores.map((score) => score.project.id))
 			);
 			setAssignedProjects(projectIds);
 			if (projectIds.length > 0) {
@@ -90,9 +117,9 @@ const JudgingPage: React.FC = () => {
 				setSelectedProjectId("");
 			}
 		}
-	}, [user, allProjects, allScores, loadingProjects, loadingScores]);
+	}, [allScores, loadingScores, user?.uid, mode, allProjects, loadingProjects]);
 
-	// Load the current score (or initialize with defaults) when the selected project changes.
+	// When the selected project changes, load its score.
 	useEffect(() => {
 		if (selectedProjectId !== "" && !loadingScores && user?.uid && allScores) {
 			const existingScore = allScores.find(
@@ -113,6 +140,10 @@ const JudgingPage: React.FC = () => {
 		}
 	}, [selectedProjectId, allScores, loadingScores, user?.uid]);
 
+	const handleModeChange = (event: React.SyntheticEvent, newValue: Mode) => {
+		setMode(newValue);
+	};
+
 	const handleProjectChange = (event: SelectChangeEvent<number>) => {
 		setSelectedProjectId(event.target.value as number);
 	};
@@ -126,6 +157,20 @@ const JudgingPage: React.FC = () => {
 
 	const handleSnackbarClose = () => {
 		setSnackbar(null);
+	};
+
+	// Handle note field changes (notes remain editable in both modes).
+	const handleNotesChange = (
+		e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+	) => {
+		if (selectedProjectId !== "") {
+			const newNote = e.target.value;
+			setNotesMap((prev) => {
+				const updated = { ...prev, [selectedProjectId as number]: newNote };
+				localStorage.setItem("judgingNotes", JSON.stringify(updated));
+				return updated;
+			});
+		}
 	};
 
 	const allCriteria: CriteriaType[] = [
@@ -165,17 +210,8 @@ const JudgingPage: React.FC = () => {
 
 		const onSuccess = (message: string) => {
 			setSnackbar({ open: true, message, severity: "success" });
-			// Remove the submitted project from the list.
-			const newProjects = assignedProjects.filter(
-				(id) => id !== selectedProjectId
-			);
-			setAssignedProjects(newProjects);
-			// If there are any remaining projects, select the first one.
-			if (newProjects.length > 0) {
-				setSelectedProjectId(newProjects[0]);
-			} else {
-				setSelectedProjectId("");
-			}
+			// Update local state to reflect submission.
+			setScoreValues((prev) => ({ ...prev, submitted: true }));
 		};
 
 		const existingScore = allScores?.find(
@@ -191,7 +227,7 @@ const JudgingPage: React.FC = () => {
 					data: payload as ScoreUpdateEntity,
 				},
 				{
-					onSuccess: () => onSuccess("Scores updated successfully."),
+					onSuccess: () => onSuccess("Scores submitted successfully."),
 					onError: (err) => {
 						console.error(err);
 						setSnackbar({
@@ -217,10 +253,61 @@ const JudgingPage: React.FC = () => {
 		}
 	};
 
-	// Render criteria sliders.
-	// For criteria starting with "challenge", only show the slider if the selected project's
-	// categories include that specific challenge.
-	const renderCriteria = () => {
+	// Handle "Project Missing" action: submit a score of 1 for all fields.
+	const handleProjectMissing = () => {
+		if (!user?.uid || selectedProjectId === "") return;
+		// Create a payload with 1 for every criteria.
+		const missingPayload: ScoreUpdateEntity = allCriteria.reduce(
+			(acc, key) => ({ ...acc, [key]: 1 }),
+			{ submitted: true }
+		);
+
+		const onSuccess = (message: string) => {
+			setSnackbar({ open: true, message, severity: "success" });
+			setScoreValues(missingPayload);
+		};
+
+		const existingScore = allScores?.find(
+			(score) =>
+				score.judge?.id === user.uid && score.project.id === selectedProjectId
+		);
+
+		if (existingScore) {
+			updateScoreMutate(
+				{
+					id: existingScore.judge.id,
+					projectId: existingScore.project.id,
+					data: missingPayload,
+				},
+				{
+					onSuccess: () => onSuccess("Missing project score submitted."),
+					onError: (err) => {
+						console.error(err);
+						setSnackbar({
+							open: true,
+							message: "Error updating missing project score.",
+							severity: "error",
+						});
+					},
+				}
+			);
+		} else {
+			createScoreMutate(missingPayload as ScoreCreateEntity, {
+				onSuccess: () => onSuccess("Missing project score submitted."),
+				onError: (err) => {
+					console.error(err);
+					setSnackbar({
+						open: true,
+						message: "Error submitting missing project score.",
+						severity: "error",
+					});
+				},
+			});
+		}
+	};
+
+	// Render criteria sliders. In History mode sliders are read-only.
+	const renderCriteria = (readOnly: boolean) => {
 		const selectedProject = allProjects?.find(
 			(proj) => proj.id === selectedProjectId
 		);
@@ -245,7 +332,8 @@ const JudgingPage: React.FC = () => {
 						marks
 						min={0}
 						max={5}
-						valueLabelDisplay="on"
+						valueLabelDisplay="auto"
+						disabled={readOnly}
 					/>
 				</Box>
 			));
@@ -254,75 +342,139 @@ const JudgingPage: React.FC = () => {
 	return (
 		<Container maxWidth="md" sx={{ mt: 4 }}>
 			<Paper elevation={3} sx={{ p: 4 }}>
-				<Typography variant="h4" gutterBottom align="center">
-					Project Judging
-				</Typography>
+				{/* Mode Switch Tabs */}
+				<Box sx={{ display: "flex", justifyContent: "center", mb: 2 }}>
+					<Tabs
+						value={mode}
+						onChange={handleModeChange}
+						indicatorColor="primary"
+						textColor="primary"
+					>
+						<Tab label="Judging" value="judging" />
+						<Tab label="History" value="history" />
+					</Tabs>
+				</Box>
 
-				{(loadingProjects || loadingScores) && (
+				{loadingProjects || loadingScores ? (
 					<Typography align="center">Loading data...</Typography>
-				)}
-
-				{/* If there are no unsubmitted projects, show a completion message with a button to get additional assignments */}
-				{!loadingProjects &&
-					!loadingScores &&
-					assignedProjects.length === 0 && (
-						<Box sx={{ textAlign: "center", mt: 4 }}>
-							<Typography align="center">
-								You have submitted all your projects.
-							</Typography>
-							<Button
-								variant="outlined"
-								sx={{ mt: 2 }}
-								onClick={() => {
-									if (user?.uid) {
-										assignAdditionalJudgingMutate(user.uid);
-									}
-								}}
-							>
-								Get Additional Assignments
-							</Button>
-						</Box>
-					)}
-
-				{assignedProjects.length > 0 && (
+				) : (
 					<>
-						<FormControl fullWidth sx={{ mb: 4 }}>
-							<InputLabel id="project-select-label">Select Project</InputLabel>
-							<Select
-								labelId="project-select-label"
-								value={selectedProjectId}
-								onChange={handleProjectChange}
-								label="Select Project"
-							>
-								{assignedProjects.map((projectId) => {
-									const project = allProjects?.find(
-										(proj) => proj.id === projectId
-									);
-									const projectName = project?.name || `Project #${projectId}`;
-									return (
-										<MenuItem key={projectId} value={projectId}>
-											{projectName}
-										</MenuItem>
-									);
-								})}
-							</Select>
-						</FormControl>
+						{/* When no projects are available */}
+						{assignedProjects.length === 0 && (
+							<Box sx={{ textAlign: "center", mt: 4 }}>
+								<Typography align="center">
+									{mode === "judging"
+										? "You have submitted all your projects."
+										: "No submitted projects to display."}
+								</Typography>
+								{mode === "judging" && (
+									<Button
+										variant="outlined"
+										sx={{ mt: 2 }}
+										onClick={() => {
+											if (user?.uid) {
+												assignAdditionalJudgingMutate(user.uid, {
+													onSuccess: () =>
+														setSnackbar({
+															open: true,
+															message: "New assignments added.",
+															severity: "success",
+														}),
+													onError: (err) => {
+														console.error(err);
+														setSnackbar({
+															open: true,
+															message: "Error getting new assignments.",
+															severity: "error",
+														});
+													},
+												});
+											}
+										}}
+									>
+										Get Additional Assignments
+									</Button>
+								)}
+							</Box>
+						)}
 
-						{selectedProjectId !== "" && (
+						{assignedProjects.length > 0 && (
 							<>
-								{renderCriteria()}
-								<Grid container spacing={2} sx={{ mt: 2 }}>
-									<Grid item xs={12}>
-										<Button
-											variant="outlined"
-											color="success"
-											onClick={handleSubmit}
-											fullWidth
-										>
-											Submit
-										</Button>
-									</Grid>
-								</Grid>
+								{/* Project Selector */}
+								<FormControl fullWidth sx={{ mb: 4 }}>
+									<InputLabel id="project-select-label">
+										Select Project
+									</InputLabel>
+									<Select
+										labelId="project-select-label"
+										value={selectedProjectId}
+										onChange={handleProjectChange}
+										label="Select Project"
+									>
+										{assignedProjects.map((projectId) => {
+											const project = allProjects?.find(
+												(proj) => proj.id === projectId
+											);
+											const projectName =
+												project?.name || `Project #${projectId}`;
+											return (
+												<MenuItem key={projectId} value={projectId}>
+													{projectName}
+												</MenuItem>
+											);
+										})}
+									</Select>
+								</FormControl>
+
+								{selectedProjectId !== "" && (
+									<>
+										{/* Criteria Sliders */}
+										{renderCriteria(mode === "history")}
+										<Grid container spacing={2} sx={{ mt: 2 }}>
+											{mode === "judging" && (
+												<>
+													<Grid item xs={12}>
+														<Button
+															variant="outlined"
+															color="success"
+															onClick={handleSubmit}
+															fullWidth
+															disabled={scoreValues.submitted}
+														>
+															{scoreValues.submitted ? "Submitted" : "Submit"}
+														</Button>
+													</Grid>
+													<Grid item xs={12}>
+														<Button
+															variant="outlined"
+															color="warning"
+															onClick={handleProjectMissing}
+															fullWidth
+														>
+															Project Missing
+														</Button>
+													</Grid>
+												</>
+											)}
+										</Grid>
+
+										{/* Note Area (editable in both modes) */}
+										<Box sx={{ mt: 4 }}>
+											<Typography variant="h6">
+												Your Notes (saved locally)
+											</Typography>
+											<TextField
+												fullWidth
+												multiline
+												rows={3}
+												variant="outlined"
+												value={notesMap[selectedProjectId as number] || ""}
+												onChange={handleNotesChange}
+												placeholder="Type your notes here..."
+											/>
+										</Box>
+									</>
+								)}
 							</>
 						)}
 					</>

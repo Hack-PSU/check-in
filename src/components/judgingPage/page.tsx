@@ -30,6 +30,7 @@ import {
 } from "@/common/api/judging";
 import { useFirebase } from "@/components/context";
 import { useActiveHackathonForStatic } from "@/common/api/hackathon";
+import { useFlagState } from "@/common/api/flag";
 
 type CriteriaType =
 	| "creativity"
@@ -76,6 +77,7 @@ const JudgingPage: React.FC = () => {
 	const { mutate: createScoreMutate } = useCreateScore();
 	const { mutate: updateScoreMutate } = useUpdateScore();
 	const { mutate: assignAdditionalJudgingMutate } = useAssignAdditonalJudging();
+	const { data: judgingFlag, isLoading: flagLoading } = useFlagState("judging");
 
 	// Load saved notes from local storage.
 	useEffect(() => {
@@ -338,6 +340,26 @@ const JudgingPage: React.FC = () => {
 				</Box>
 			));
 	};
+
+	if (flagLoading) {
+		return (
+			<Container>
+				<Typography align="center" sx={{ mt: 4 }}>
+					Loading judging status...
+				</Typography>
+			</Container>
+		);
+	}
+
+	if (judgingFlag && !judgingFlag.isEnabled) {
+		return (
+			<Container>
+				<Alert severity="info" sx={{ mt: 4 }}>
+					The judging period has ended. Please head over to the auditorium to discuss the projects.
+				</Alert>
+			</Container>
+		);
+	}
 
 	return (
 		<Container maxWidth="md" sx={{ mt: 4 }}>

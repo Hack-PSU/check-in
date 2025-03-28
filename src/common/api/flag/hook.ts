@@ -16,6 +16,7 @@ export function useAllFlags() {
 	return useQuery<FlagEntity[]>({
 		queryKey: flagQueryKeys.all,
 		queryFn: getAllFlags,
+		refetchInterval: 1000 * 5, // 5 seconds
 	});
 }
 

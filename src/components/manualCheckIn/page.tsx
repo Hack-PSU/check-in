@@ -20,7 +20,6 @@ import { useAllEvents, useCheckInEvent } from "@/common/api/event";
 import { useAllUsers } from "@/common/api/user";
 import { EventEntityResponse, EventType } from "@/common/api/event/entity";
 import { UserEntity } from "@/common/api/user/entity";
-import { EventEntityResponse } from "@/common/api/event/entity";
 import { useActiveHackathonForStatic } from "@/common/api/hackathon";
 
 const ManualCheckIn: React.FC = () => {

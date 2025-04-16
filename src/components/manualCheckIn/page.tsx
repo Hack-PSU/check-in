@@ -18,9 +18,8 @@ import { useFirebase } from "@/components/context";
 // Import your new React Query hooks and types
 import { useAllEvents, useCheckInEvent } from "@/common/api/event";
 import { useAllUsers } from "@/common/api/user";
-
+import { EventEntityResponse, EventType } from "@/common/api/event/entity";
 import { UserEntity } from "@/common/api/user/entity";
-import { EventEntityResponse } from "@/common/api/event/entity";
 import { useActiveHackathonForStatic } from "@/common/api/hackathon";
 
 const ManualCheckIn: React.FC = () => {
@@ -62,7 +61,11 @@ const ManualCheckIn: React.FC = () => {
 			eventsData.length > 0 &&
 			!selectedEvent
 		) {
-			setSelectedEvent(eventsData[0].id); // or eventsData[0]._id if that's your field
+			// Optionally auto-select the first event of type "checkIn", or else the first in the list
+			const checkInEvent = eventsData.find(
+				(evt) => evt.type === EventType.checkIn
+			);
+			setSelectedEvent(checkInEvent?.id || eventsData[0].id);
 		}
 	}, [eventsData, eventsLoading, selectedEvent]);
 

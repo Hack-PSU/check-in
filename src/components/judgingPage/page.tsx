@@ -355,7 +355,8 @@ const JudgingPage: React.FC = () => {
 		return (
 			<Container>
 				<Alert severity="info" sx={{ mt: 4 }}>
-					The judging period has ended. Please head over to the auditorium to discuss the projects.
+					The judging period has ended. Please head over to the auditorium to
+					discuss the projects.
 				</Alert>
 			</Container>
 		);

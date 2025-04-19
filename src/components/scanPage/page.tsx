@@ -27,6 +27,9 @@ import { useActiveHackathonForStatic } from "@/common/api/hackathon/hook";
 // Optional: If your backend expects extra fields in the payload
 // import { CreateScanEntity } from "@/common/api/events/entity";
 
+const SCAN_INTERVAL = 500; // Scanning interval in ms
+const DEBOUNCE_TIME = 1000; // Debouncing to prevent multiple scans in the same time period, also in ms
+
 const ScanPage: React.FC = () => {
 	const videoRef = useRef<HTMLVideoElement>(null);
 	const router = useRouter();
@@ -53,6 +56,10 @@ const ScanPage: React.FC = () => {
 
 	// 2) Mutation hook for check-in
 	const { mutate: checkInMutate } = useCheckInEvent();
+
+	// Scan page states
+	const [lastScannedCode, setLastScannedCode] = useState<string | null>(null);
+	const [lastScanTime, setLastScanTime] = useState<number | null>(null);
 
 	// If user is not logged in, redirect to auth page
 	useEffect(() => {
@@ -167,6 +174,8 @@ const ScanPage: React.FC = () => {
 							message: `User ${scannedUserId} checked in successfully to ${eventName}`,
 							severity: "success",
 						});
+						// Optionally reset lastScannedCode after successful scan
+						setTimeout(() => setLastScannedCode(null), DEBOUNCE_TIME);
 					},
 					onError: (err) => {
 						console.error("Check-in failed", err);
@@ -191,7 +200,7 @@ const ScanPage: React.FC = () => {
 	);
 
 	// Capture current video frame & scan for QR code
-	const captureAndScanImage = async () => {
+	const QRCodeScan = useCallback(() => {
 		if (!videoRef.current) return;
 
 		const canvas = document.createElement("canvas");
@@ -205,9 +214,17 @@ const ScanPage: React.FC = () => {
 			const code = jsQR(imageData.data, imageData.width, imageData.height);
 
 			if (code) {
-				// Example: your QR code might look like "HACKPSU_userId"
-				const userId = code.data.replace("HACKPSU_", "");
-				handleCheckIn(userId);
+				const currentTime = Date.now();
+				if (
+					code.data !== lastScannedCode ||
+					(lastScanTime && currentTime - lastScanTime > DEBOUNCE_TIME)
+				) {
+					// Example: your QR code might look like "HACKPSU_userId"
+					const userId = code.data.replace("HACKPSU_", "");
+					handleCheckIn(userId);
+					setLastScanTime(currentTime);
+					setLastScannedCode(code.data);
+				}
 			} else {
 				setSnackbar({
 					open: true,
@@ -222,7 +239,21 @@ const ScanPage: React.FC = () => {
 				severity: "error",
 			});
 		}
-	};
+	}, [handleCheckIn, lastScanTime, lastScannedCode]);
+
+	useEffect(() => {
+		let intervalId: NodeJS.Timeout | null = null;
+
+		if (videoRef.current) {
+			intervalId = setInterval(QRCodeScan, SCAN_INTERVAL);
+		}
+
+		return () => {
+			if (intervalId) {
+				clearInterval(intervalId);
+			}
+		};
+	}, [QRCodeScan]);
 
 	// Simple time formatting
 	const formatDate = (time: number): string => {
@@ -301,7 +332,7 @@ const ScanPage: React.FC = () => {
 			<Button
 				variant="outlined"
 				color="primary"
-				onClick={captureAndScanImage}
+				onClick={QRCodeScan}
 				sx={{ marginTop: 2 }}
 				fullWidth
 			>

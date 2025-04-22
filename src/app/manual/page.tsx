@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState, useEffect, useCallback } from "react";
 import {
 	Button,
@@ -13,7 +15,7 @@ import {
 	Box,
 	Alert,
 } from "@mui/material";
-import { useFirebase } from "@/components/context";
+import { useFirebase } from "@/common/context";
 
 // Import your new React Query hooks and types
 import { useAllEvents, useCheckInEvent } from "@/common/api/event";

@@ -13,7 +13,7 @@ import Visibility from "@mui/icons-material/Visibility";
 import VisibilityOff from "@mui/icons-material/VisibilityOff";
 import Container from "@mui/material/Container";
 import Alert from "@mui/material/Alert";
-import { useFirebase } from "@/components/context";
+import { useFirebase } from "@/common/context";
 
 const PasswordInput = ({ name, control }: { name: string; control: any }) => {
 	const [showPassword, setShowPassword] = useState(false);
@@ -94,7 +94,7 @@ export default function AuthScreen() {
 
 	useEffect(() => {
 		if (isAuthenticated) {
-			router.push("/scans");
+			router.push("/scan");
 		}
 	}, [isAuthenticated, router]);
 

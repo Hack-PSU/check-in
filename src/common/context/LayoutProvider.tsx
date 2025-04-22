@@ -2,6 +2,9 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import FirebaseProvider from "./FirebaseProvider";
 import { auth } from "@/common/config";
+import BottomNavbar from "@/components/BottomNavbar";
+import { Box } from "@mui/material";
+import AuthGuard from "./AuthGuard";
 
 const queryClient = new QueryClient({
 	defaultOptions: {
@@ -20,7 +23,10 @@ export default function LayoutProvider({
 		<>
 			<FirebaseProvider auth={auth}>
 				<QueryClientProvider client={queryClient}>
-					{children}
+					<AuthGuard>
+						<Box sx={{ pb: "56px" }}>{children}</Box>
+						<BottomNavbar />
+					</AuthGuard>
 				</QueryClientProvider>
 			</FirebaseProvider>
 		</>

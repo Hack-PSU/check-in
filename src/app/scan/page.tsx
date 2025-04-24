@@ -14,10 +14,9 @@ import {
 	SelectChangeEvent,
 } from "@mui/material";
 import jsQR from "jsqr";
-import { useRouter } from "next/navigation";
 
 // Firebase/Auth context (or any other user-auth system)
-import { useFirebase } from "@/components/context";
+import { useFirebase } from "@/common/context";
 
 // React Query hooks for events
 import { useAllEvents, useCheckInEvent } from "@/common/api/event";
@@ -29,7 +28,6 @@ import { useActiveHackathonForStatic } from "@/common/api/hackathon/hook";
 
 const ScanPage: React.FC = () => {
 	const videoRef = useRef<HTMLVideoElement>(null);
-	const router = useRouter();
 	const { user, isLoading, logout } = useFirebase();
 
 	// Selected event from the dropdown
@@ -53,14 +51,6 @@ const ScanPage: React.FC = () => {
 
 	// 2) Mutation hook for check-in
 	const { mutate: checkInMutate } = useCheckInEvent();
-
-	// If user is not logged in, redirect to auth page
-	useEffect(() => {
-		if (!user && !isLoading) {
-			logout();
-			router.push("/auth");
-		}
-	}, [user, isLoading, logout, router]);
 
 	// Start camera on mount, stop on unmount
 	useEffect(() => {
@@ -126,7 +116,6 @@ const ScanPage: React.FC = () => {
 		(scannedUserId: string) => {
 			if (!user) {
 				logout();
-				router.push("/auth");
 				return;
 			}
 			if (!selectedEvent) {
@@ -179,15 +168,7 @@ const ScanPage: React.FC = () => {
 				}
 			);
 		},
-		[
-			user,
-			selectedEvent,
-			hackathonData,
-			checkInMutate,
-			logout,
-			router,
-			eventsData,
-		]
+		[user, selectedEvent, hackathonData, checkInMutate, logout, eventsData]
 	);
 
 	// Capture current video frame & scan for QR code

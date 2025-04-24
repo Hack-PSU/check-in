@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useEffect, useState } from "react";
 import {
 	Container,
@@ -28,7 +30,7 @@ import {
 	ScoreCreateEntity,
 	ScoreUpdateEntity,
 } from "@/common/api/judging";
-import { useFirebase } from "@/components/context";
+import { useFirebase } from "@/common/context";
 import { useActiveHackathonForStatic } from "@/common/api/hackathon";
 import { useFlagState } from "@/common/api/flag";
 

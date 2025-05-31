@@ -32,6 +32,13 @@ const ScanPage: React.FC = () => {
 
 	// Selected event from the dropdown
 	const [selectedEvent, setSelectedEvent] = useState<string>("");
+	const [isAutoScanning, setIsAutoScanning] = useState<boolean>(true);
+	const [lastSuccessfulScanTime, setLastSuccessfulScanTime] = useState<number>(0);
+	const autoScanInterval = 2000; // ms
+	const scanPauseDuration = 10000; // ms, pause after successful scan
+	const [userFeedback, setUserFeedback] = useState<string>(
+		"Initializing scanner..."
+	);
 
 	// Snackbar for success/error messages
 	const [snackbar, setSnackbar] = useState<{
@@ -83,24 +90,44 @@ const ScanPage: React.FC = () => {
 		};
 	}, []);
 
-	// Once events load, pick the default event
+	// Effect to resume auto-scanning after a pause
 	useEffect(() => {
-		if (
-			!eventsLoading &&
-			eventsData &&
-			eventsData.length > 0 &&
-			!selectedEvent
-		) {
-			// Optionally auto-select the first event of type "checkIn", or else the first in the list
-			const checkInEvent = eventsData.find(
-				(evt) => evt.type === EventType.checkIn
-			);
-			setSelectedEvent(checkInEvent?.id || eventsData[0].id);
+		if (lastSuccessfulScanTime > 0) {
+			const timer = setTimeout(() => {
+				setIsAutoScanning(true);
+				setUserFeedback("Scanning..."); // Feedback when resuming
+			}, scanPauseDuration);
+			return () => clearTimeout(timer);
+		}
+	}, [lastSuccessfulScanTime, scanPauseDuration]);
+
+	// Once events load, pick the default event, set initial feedback
+	useEffect(() => {
+		if (!eventsLoading && eventsData && eventsData.length > 0) {
+			if (!selectedEvent) {
+				const checkInEvent = eventsData.find(
+					(evt) => evt.type === EventType.checkIn
+				);
+				const defaultEventId = checkInEvent?.id || eventsData[0].id;
+				setSelectedEvent(defaultEventId);
+				setUserFeedback("Align QR code in the box to scan."); // Default happy path
+			}
+		} else if (!eventsLoading && (!eventsData || eventsData.length === 0)) {
+			setUserFeedback("No events available to scan for. Please create an event.");
+			setIsAutoScanning(false);
 		}
 	}, [eventsData, eventsLoading, selectedEvent]);
 
 	const handleEventChange = (event: SelectChangeEvent<string>) => {
 		setSelectedEvent(event.target.value as string);
+		// If auto-scanning was off due to no event, and now an event is selected
+		if (!isAutoScanning && hackathonData) { // hackathonData check implies basic setup is fine
+			setIsAutoScanning(true);
+			setUserFeedback("Scanning...");
+		} else if (!hackathonData) {
+			setUserFeedback("Active hackathon not found. Cannot start scanning.");
+			setIsAutoScanning(false);
+		}
 	};
 
 	const handleSnackbarClose = (
@@ -115,27 +142,35 @@ const ScanPage: React.FC = () => {
 	const handleCheckIn = useCallback(
 		(scannedUserId: string) => {
 			if (!user) {
-				logout();
+				logout(); // This should ideally redirect or show a blocking message
+				setUserFeedback("User not authenticated. Please log in.");
+				setIsAutoScanning(false);
 				return;
 			}
+
 			if (!selectedEvent) {
-				setSnackbar({
-					open: true,
-					message: "Please select an event",
-					severity: "error",
-				});
+				const msg = "Please select an event to scan for.";
+				if (isAutoScanning) {
+					setUserFeedback(msg);
+					setIsAutoScanning(false);
+				} else {
+					setSnackbar({ open: true, message: msg, severity: "error" });
+				}
 				return;
 			}
 
 			if (!hackathonData) {
-				setSnackbar({
-					open: true,
-					message: "No active hackathon found",
-					severity: "error",
-				});
+				const msg = "No active hackathon found. Cannot record scan.";
+				if (isAutoScanning) {
+					setUserFeedback(msg);
+					setIsAutoScanning(false);
+				} else {
+					setSnackbar({ open: true, message: msg, severity: "error" });
+				}
 				return;
 			}
 
+			setUserFeedback("Processing check-in..."); // Feedback before mutation
 			// Call our mutation
 			checkInMutate(
 				{
@@ -156,24 +191,51 @@ const ScanPage: React.FC = () => {
 							message: `User ${scannedUserId} checked in successfully to ${eventName}`,
 							severity: "success",
 						});
+						setLastSuccessfulScanTime(Date.now());
+						setIsAutoScanning(false); // Pause auto-scan
+						setUserFeedback(
+							`Success! ${scannedUserId} checked into ${eventName}. Auto-scan paused.`
+						);
 					},
 					onError: (err) => {
 						console.error("Check-in failed", err);
+						const errorMsg = `Error checking in: ${err.message}.`;
 						setSnackbar({
 							open: true,
-							message: `Error checking in user: ${err.message}`,
+							message: errorMsg,
 							severity: "error",
 						});
+						setUserFeedback(errorMsg + " Ready to try again.");
+						// Potentially allow auto-scan to continue if it's a transient backend error
+						// For now, it will resume after standard pause or manual click
 					},
 				}
 			);
 		},
-		[user, selectedEvent, hackathonData, checkInMutate, logout, eventsData]
+		[
+			user,
+			selectedEvent,
+			hackathonData,
+			checkInMutate,
+			logout,
+			eventsData,
+			isAutoScanning,
+			setUserFeedback, // Added setUserFeedback
+		]
 	);
 
 	// Capture current video frame & scan for QR code
-	const captureAndScanImage = async () => {
-		if (!videoRef.current) return;
+	const captureAndScanImage = useCallback(async () => {
+		if (!videoRef.current || !videoRef.current.videoWidth) {
+			setUserFeedback("Video stream not available.");
+			return false;
+		}
+
+		// No need to set "Scanning..." here if auto-scan effect does it.
+		// However, for manual scans, this is a good place.
+		if (!isAutoScanning) {
+			setUserFeedback("Attempting manual scan...");
+		}
 
 		const canvas = document.createElement("canvas");
 		canvas.width = videoRef.current.videoWidth;
@@ -185,25 +247,78 @@ const ScanPage: React.FC = () => {
 			const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 			const code = jsQR(imageData.data, imageData.width, imageData.height);
 
-			if (code) {
-				// Example: your QR code might look like "HACKPSU_userId"
-				const userId = code.data.replace("HACKPSU_", "");
+			if (code && code.data) {
+				setUserFeedback("QR code detected, processing...");
+				const userId = code.data.replace("HACKPSU_", ""); // Example prefix
 				handleCheckIn(userId);
+				return true;
 			} else {
-				setSnackbar({
-					open: true,
-					message: "No QR code detected",
-					severity: "error",
-				});
+				if (isAutoScanning) {
+					setUserFeedback("Searching for QR code..."); // Continuous feedback for auto-scan
+				} else {
+					// Manual scan specific feedback for no QR
+					setSnackbar({
+						open: true,
+						message: "No QR code detected on manual scan.",
+						severity: "error",
+					});
+					setUserFeedback("No QR code found. Try again or adjust camera.");
+				}
+				return false;
 			}
 		} else {
+			setUserFeedback("Error processing image from camera.");
 			setSnackbar({
 				open: true,
 				message: "Error processing the image",
 				severity: "error",
 			});
+			return false;
 		}
-	};
+	}, [videoRef, handleCheckIn, isAutoScanning, setUserFeedback]); // Added deps
+
+	// Auto-scanning logic
+	useEffect(() => {
+		// Update initial feedback based on state
+		if (!selectedEvent && eventsData && eventsData.length > 0) {
+			setUserFeedback("Please select an event to begin scanning.");
+			setIsAutoScanning(false);
+		} else if (isAutoScanning) {
+			setUserFeedback("Scanning...");
+		}
+
+
+		let intervalId: NodeJS.Timeout | null = null;
+
+		if (isAutoScanning) {
+			intervalId = setInterval(async () => {
+				const now = Date.now();
+				if (now > lastSuccessfulScanTime + scanPauseDuration) {
+					// setUserFeedback("Scanning..."); // Set before each attempt in auto-scan
+					await captureAndScanImage();
+				}
+			}, autoScanInterval);
+		} else {
+			if (intervalId) {
+				clearInterval(intervalId);
+			}
+		}
+
+		return () => {
+			if (intervalId) {
+				clearInterval(intervalId);
+			}
+		};
+	}, [
+		isAutoScanning,
+		lastSuccessfulScanTime,
+		captureAndScanImage,
+		autoScanInterval,
+		scanPauseDuration,
+		selectedEvent,
+		eventsData,
+		setUserFeedback, // Added setUserFeedback
+	]);
 
 	// Simple time formatting
 	const formatDate = (time: number): string => {
@@ -267,6 +382,7 @@ const ScanPage: React.FC = () => {
 					overflow: "hidden",
 					borderRadius: 8,
 					marginTop: 16,
+					position: "relative", // Added for overlay positioning
 				}}
 			>
 				<video
@@ -274,16 +390,61 @@ const ScanPage: React.FC = () => {
 					autoPlay
 					muted
 					playsInline
-					style={{ width: "100%" }}
+					style={{ width: "100%", display: "block" }} // Added display: block
 				/>
+				{/* QR Code Guideline Overlay */}
+				<div
+					style={{
+						position: "absolute",
+						top: 0,
+						left: 0,
+						width: "100%",
+						height: "100%",
+						display: "flex",
+						alignItems: "center",
+						justifyContent: "center",
+					}}
+				>
+					<div
+						style={{
+							width: "60%", // Relative size for responsiveness
+							paddingBottom: "60%", // Aspect ratio 1:1
+							border: "2px dashed white",
+							boxShadow: "0 0 0 9999px rgba(0, 0, 0, 0.5)", // Cut-out effect
+							borderRadius: "8px", // Optional: if you want rounded corners for the guideline itself
+						}}
+					/>
+				</div>
 			</div>
+
+			{/* User Feedback Display */}
+			{userFeedback && (
+				<Typography
+					variant="body1"
+					align="center"
+					sx={{ marginTop: 2, minHeight: "1.5em" }} // minHeight to prevent layout shift
+				>
+					{userFeedback}
+				</Typography>
+			)}
 
 			{/* Scan Button */}
 			<Button
 				variant="outlined"
 				color="primary"
-				onClick={captureAndScanImage}
-				sx={{ marginTop: 2 }}
+				onClick={async () => {
+					setIsAutoScanning(false); // Stop auto-scan on manual intervention
+					setUserFeedback("Manual scan initiated...");
+					const success = await captureAndScanImage();
+					if (success) {
+						// Feedback is handled by captureAndScanImage / handleCheckIn
+					} else if (!isAutoScanning) { // If still not auto-scanning (i.e. not resumed by success)
+						setUserFeedback(
+							"Manual scan did not find a QR code. Auto-scan is off."
+						);
+					}
+				}}
+				sx={{ marginTop: 1 }} // Reduced margin a bit to accommodate feedback text
 				fullWidth
 			>
 				Scan QR Code

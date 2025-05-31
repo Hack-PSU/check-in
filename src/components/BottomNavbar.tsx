@@ -6,6 +6,7 @@ import QrCodeScannerIcon from "@mui/icons-material/QrCodeScanner";
 import AssignmentIndIcon from "@mui/icons-material/AssignmentInd";
 import GavelIcon from "@mui/icons-material/Gavel";
 import LogoutIcon from "@mui/icons-material/Logout";
+import LaptopIcon from "@mui/icons-material/Laptop";
 import { useFirebase } from "@/common/context";
 import { useRouter, usePathname } from "next/navigation";
 
@@ -19,6 +20,7 @@ export default function BottomNav() {
 		"/manual": 1,
 		"/judging": 2,
 		"/auth": 3,
+		"/logs": 4,
 	};
 
 	const [currentIndex, setCurrentIndex] = useState(
@@ -43,6 +45,9 @@ export default function BottomNav() {
 			case 3:
 				await logout();
 				router.push("/auth");
+				break;
+			case 4:
+				router.push("/logs");
 				break;
 			default:
 				break;
@@ -76,6 +81,7 @@ export default function BottomNav() {
 				/>
 				<BottomNavigationAction label="Judging" icon={<GavelIcon />} />
 				<BottomNavigationAction label="Log Out" icon={<LogoutIcon />} />
+				<BottomNavigationAction label="Logs" icon={<LaptopIcon />} />
 			</BottomNavigation>
 		</Box>
 	);

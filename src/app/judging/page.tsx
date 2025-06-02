@@ -81,6 +81,9 @@ const JudgingPage: React.FC = () => {
 	const { mutate: assignAdditionalJudgingMutate } = useAssignAdditonalJudging();
 	const { data: judgingFlag, isLoading: flagLoading } = useFlagState("judging");
 
+	// — NEW: Track when the initial load of projects+scores has finished —
+	const [initialFetchDone, setInitialFetchDone] = useState(false);
+
 	// Load saved notes from local storage.
 	useEffect(() => {
 		const savedNotes = localStorage.getItem("judgingNotes");
@@ -94,7 +97,14 @@ const JudgingPage: React.FC = () => {
 		}
 	}, []);
 
-	// Whenever the mode or score data changes, update the list of assigned projects.
+	// Once both loading flags are false, we know we have the first batch of data.
+	useEffect(() => {
+		if (!loadingProjects && !loadingScores) {
+			setInitialFetchDone(true);
+		}
+	}, [loadingProjects, loadingScores]);
+
+	// Whenever scores/projects change, update assignedProjects list.
 	useEffect(() => {
 		if (
 			!loadingProjects &&
@@ -104,8 +114,7 @@ const JudgingPage: React.FC = () => {
 			allScores
 		) {
 			const filteredScores = allScores.filter((score) => {
-				// In Judging mode, show only unsubmitted projects.
-				// In History mode, show only submitted projects.
+				// In Judging mode → only unsubmitted; in History mode → only submitted.
 				return (
 					score.judge?.id === user.uid &&
 					(mode === "judging" ? !score.submitted : score.submitted)
@@ -115,6 +124,7 @@ const JudgingPage: React.FC = () => {
 				new Set(filteredScores.map((score) => score.project.id))
 			);
 			setAssignedProjects(projectIds);
+
 			if (projectIds.length > 0) {
 				setSelectedProjectId(projectIds[0]);
 			} else {
@@ -123,7 +133,46 @@ const JudgingPage: React.FC = () => {
 		}
 	}, [allScores, loadingScores, user?.uid, mode, allProjects, loadingProjects]);
 
-	// When the selected project changes, load its score.
+	// — UPDATED: Auto‐fetch new assignments only after the first‐load is done,
+	//    and only when mode="judging" & assignedProjects is empty. —
+	useEffect(() => {
+		if (
+			initialFetchDone && // wait until initial data load
+			mode === "judging" &&
+			!loadingProjects &&
+			!loadingScores &&
+			user?.uid &&
+			assignedProjects.length === 0
+		) {
+			assignAdditionalJudgingMutate(user.uid, {
+				onSuccess: () => {
+					setSnackbar({
+						open: true,
+						message: "New assignments have been fetched.",
+						severity: "success",
+					});
+				},
+				onError: (err) => {
+					console.error(err);
+					setSnackbar({
+						open: true,
+						message: "Error fetching new assignments.",
+						severity: "error",
+					});
+				},
+			});
+		}
+	}, [
+		initialFetchDone,
+		assignedProjects,
+		mode,
+		user?.uid,
+		loadingProjects,
+		loadingScores,
+		assignAdditionalJudgingMutate,
+	]);
+
+	// When selectedProjectId changes, load that project's existing score if any.
 	useEffect(() => {
 		if (selectedProjectId !== "" && !loadingScores && user?.uid && allScores) {
 			const existingScore = allScores.find(
@@ -206,7 +255,6 @@ const JudgingPage: React.FC = () => {
 			return;
 		}
 
-		// Prepare payload with submitted scores.
 		const payload: ScoreCreateEntity | ScoreUpdateEntity = {
 			...scoreValues,
 			submitted: true,
@@ -214,7 +262,6 @@ const JudgingPage: React.FC = () => {
 
 		const onSuccess = (message: string) => {
 			setSnackbar({ open: true, message, severity: "success" });
-			// Update local state to reflect submission.
 			setScoreValues((prev) => ({ ...prev, submitted: true }));
 		};
 
@@ -257,12 +304,11 @@ const JudgingPage: React.FC = () => {
 		}
 	};
 
-	// Handle "Project Missing" action: submit a score of 1 for all fields.
+	// Handle "Project Missing" action: submit zeroes for all fields.
 	const handleProjectMissing = () => {
 		if (!user?.uid || selectedProjectId === "") return;
-		// Create a payload with 1 for every criteria.
 		const missingPayload: ScoreUpdateEntity = allCriteria.reduce(
-			(acc, key) => ({ ...acc, [key]: 1 }),
+			(acc, key) => ({ ...acc, [key]: 0 }),
 			{ submitted: true }
 		);
 
@@ -310,7 +356,7 @@ const JudgingPage: React.FC = () => {
 		}
 	};
 
-	// Render criteria sliders. In History mode sliders are read-only.
+	// Render criteria sliders. In History mode, sliders are read-only.
 	const renderCriteria = (readOnly: boolean) => {
 		const selectedProject = allProjects?.find(
 			(proj) => proj.id === selectedProjectId
@@ -389,37 +435,9 @@ const JudgingPage: React.FC = () => {
 							<Box sx={{ textAlign: "center", mt: 4 }}>
 								<Typography align="center">
 									{mode === "judging"
-										? "You have submitted all your projects."
+										? "Fetching new assignments..."
 										: "No submitted projects to display."}
 								</Typography>
-								{mode === "judging" && (
-									<Button
-										variant="outlined"
-										sx={{ mt: 2 }}
-										onClick={() => {
-											if (user?.uid) {
-												assignAdditionalJudgingMutate(user.uid, {
-													onSuccess: () =>
-														setSnackbar({
-															open: true,
-															message: "New assignments added.",
-															severity: "success",
-														}),
-													onError: (err) => {
-														console.error(err);
-														setSnackbar({
-															open: true,
-															message: "Error getting new assignments.",
-															severity: "error",
-														});
-													},
-												});
-											}
-										}}
-									>
-										Get Additional Assignments
-									</Button>
-								)}
 							</Box>
 						)}
 

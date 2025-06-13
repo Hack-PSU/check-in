@@ -24,7 +24,7 @@
 		"firebase": "^11.0.0",
 		"jsqr": "^1.4.0",
 		"jwt-decode": "^4.0.0",
-		"lucide-react": "^0.484.0",
+		"lucide-react": "^0.515.0",
 		"luxon": "^3.4.4",
 		"next": "15.2.4",
 		"prettier": "^3.5.2",

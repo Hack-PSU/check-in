@@ -1682,17 +1682,17 @@
   dependencies:
     tslib "^2.8.0"
 
-"@tanstack/query-core@5.69.0":
-  version "5.69.0"
-  resolved "https://registry.npmjs.org/@tanstack/query-core/-/query-core-5.69.0.tgz"
-  integrity sha512-Kn410jq6vs1P8Nm+ZsRj9H+U3C0kjuEkYLxbiCyn3MDEiYor1j2DGVULqAz62SLZtUZ/e9Xt6xMXiJ3NJ65WyQ==
+"@tanstack/query-core@5.81.0":
+  version "5.81.0"
+  resolved "https://registry.yarnpkg.com/@tanstack/query-core/-/query-core-5.81.0.tgz#9814a06afdafe0b1f25bcd9e232f048a7a596ec2"
+  integrity sha512-lFsd8NBhkh26vzaq8uOOM2o3r4NtJros7kASI+TTMBmKT8C43HVN/2mOI9PFX9kzmxLThBzOLa4NI8ORhX8N9g==
 
 "@tanstack/react-query@^5.66.0":
-  version "5.69.0"
-  resolved "https://registry.npmjs.org/@tanstack/react-query/-/react-query-5.69.0.tgz"
-  integrity sha512-Ift3IUNQqTcaFa1AiIQ7WCb/PPy8aexZdq9pZWLXhfLcLxH0+PZqJ2xFImxCpdDZrFRZhLJrh76geevS5xjRhA==
+  version "5.81.0"
+  resolved "https://registry.yarnpkg.com/@tanstack/react-query/-/react-query-5.81.0.tgz#d007680b3cc508c180bf07f588ff9cd59a97ca9b"
+  integrity sha512-nutU/X1xrgMJXui61oi5j0gXKs2ZlHnI9f/C128CNha/MRi9i/E5tN3pcUIjvQZzNQnOxp1Uv90SZs3kmcecgw==
   dependencies:
-    "@tanstack/query-core" "5.69.0"
+    "@tanstack/query-core" "5.81.0"
 
 "@testing-library/jest-dom@^6.6.3":
   version "6.6.3"

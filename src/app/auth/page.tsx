@@ -1,96 +1,36 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useForm, FormProvider, Controller } from "react-hook-form";
 import { useRouter } from "next/navigation";
-import Box from "@mui/material/Box";
-import Button from "@mui/material/Button";
-import TextField from "@mui/material/TextField";
-import Typography from "@mui/material/Typography";
-import InputAdornment from "@mui/material/InputAdornment";
-import IconButton from "@mui/material/IconButton";
-import Visibility from "@mui/icons-material/Visibility";
-import VisibilityOff from "@mui/icons-material/VisibilityOff";
-import Container from "@mui/material/Container";
-import Alert from "@mui/material/Alert";
 import { useFirebase } from "@/common/context";
+import { Card, CardContent } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { Eye, EyeOff } from "lucide-react";
 
-const PasswordInput = ({ name, control }: { name: string; control: any }) => {
-	const [showPassword, setShowPassword] = useState(false);
-
-	const toggleShowPassword = () => setShowPassword((prev) => !prev);
-
-	return (
-		<Controller
-			name={name}
-			control={control}
-			render={({ field }) => (
-				<TextField
-					{...field}
-					type={showPassword ? "text" : "password"}
-					label="Password"
-					fullWidth
-					margin="normal"
-					required
-					InputProps={{
-						endAdornment: (
-							<InputAdornment position="end">
-								<IconButton onClick={toggleShowPassword} edge="end">
-									{showPassword ? <VisibilityOff /> : <Visibility />}
-								</IconButton>
-							</InputAdornment>
-						),
-					}}
-				/>
-			)}
-		/>
-	);
+type FormValues = {
+	email: string;
+	password: string;
 };
 
 export default function AuthScreen() {
 	const router = useRouter();
 	const { loginWithEmailAndPassword, isAuthenticated, logout, resetPassword } =
 		useFirebase();
+
 	const [loginError, setLoginError] = useState("");
 	const [resetMessage, setResetMessage] = useState("");
 	const [resetError, setResetError] = useState("");
-	const [isLoading, setLoading] = useState(false);
+	const [isLoading, setIsLoading] = useState(false);
+	const [showPassword, setShowPassword] = useState(false);
 
-	const methods = useForm({ defaultValues: { email: "", password: "" } });
+	const methods = useForm<FormValues>({
+		defaultValues: { email: "", password: "" },
+	});
 	const { handleSubmit, control, getValues } = methods;
-
-	const onSubmit = async (data: { email: string; password: string }) => {
-		setLoading(true);
-		setLoginError("");
-		try {
-			await loginWithEmailAndPassword(data.email, data.password);
-		} catch (error: any) {
-			const errorMessage = error.message || error;
-			console.error(error);
-			setLoginError(errorMessage);
-		}
-		setLoading(false);
-	};
-
-	const handleResetPassword = async () => {
-		const email = getValues("email");
-		if (!email) {
-			setResetError("Please enter your email address to reset your password.");
-			return;
-		}
-		setResetMessage("");
-		setResetError("");
-		try {
-			await resetPassword(email);
-			setResetMessage(
-				"Password reset email sent successfully. Please check your inbox."
-			);
-		} catch (error: any) {
-			const errorMessage = error.message || error;
-			console.error(error);
-			setResetError(errorMessage);
-		}
-	};
 
 	useEffect(() => {
 		if (isAuthenticated) {
@@ -98,102 +38,154 @@ export default function AuthScreen() {
 		}
 	}, [isAuthenticated, router]);
 
+	const onSubmit = async (data: FormValues) => {
+		setIsLoading(true);
+		setLoginError("");
+		try {
+			await loginWithEmailAndPassword(data.email, data.password);
+		} catch (err: any) {
+			setLoginError(err.message || String(err));
+		} finally {
+			setIsLoading(false);
+		}
+	};
+
+	const handleResetPassword = async () => {
+		const email = getValues("email");
+		if (!email) {
+			setResetError("Please enter your email to reset your password.");
+			return;
+		}
+		setResetMessage("");
+		setResetError("");
+		try {
+			await resetPassword(email);
+			setResetMessage("Password reset email sent. Check your inbox.");
+		} catch (err: any) {
+			setResetError(err.message || String(err));
+		}
+	};
+
 	const handleLogout = async () => {
 		try {
 			await logout();
-		} catch (error) {
-			console.error("Logout failed", error);
+		} catch {
+			/* swallow */
 		}
 	};
 
 	return (
-		<Container component="main" maxWidth="xs">
-			<Box
-				sx={{
-					marginTop: 8,
-					display: "flex",
-					flexDirection: "column",
-					alignItems: "center",
-				}}
-			>
-				<Box
-					component="img"
-					src={Math.random() < 0.2 ? "/clown.png" : "/logo.png"}
-					alt="Logo"
-					sx={{ width: "75%" }}
-				/>
-				<FormProvider {...methods}>
-					<form onSubmit={handleSubmit(onSubmit)} style={{ width: "100%" }}>
-						<Controller
-							name="email"
-							control={control}
-							render={({ field }) => (
-								<TextField
-									{...field}
-									margin="normal"
-									required
-									fullWidth
-									label="Email Address"
-									autoComplete="email"
-									autoFocus
+		<div className="min-h-screen flex flex-col items-center justify-center px-4">
+			<Card className="w-full max-w-md">
+				<CardContent className="flex flex-col items-center p-6">
+					<img
+						src="/logo.png"
+						alt="Logo"
+						className="w-3/4 mb-6 select-none pointer-events-none"
+					/>
+
+					<FormProvider {...methods}>
+						<form
+							onSubmit={handleSubmit(onSubmit)}
+							className="w-full space-y-4"
+						>
+							<div>
+								<Label htmlFor="email">Email Address</Label>
+								<Controller
+									name="email"
+									control={control}
+									render={({ field }) => (
+										<Input
+											{...field}
+											id="email"
+											type="email"
+											required
+											placeholder="you@example.com"
+										/>
+									)}
 								/>
+							</div>
+
+							<div className="relative">
+								<Label htmlFor="password">Password</Label>
+								<Controller
+									name="password"
+									control={control}
+									render={({ field }) => (
+										<Input
+											{...field}
+											id="password"
+											type={showPassword ? "text" : "password"}
+											required
+											className="pr-10"
+											placeholder=""
+										/>
+									)}
+								/>
+								<button
+									type="button"
+									onClick={() => setShowPassword((v) => !v)}
+									className="absolute inset-y-0 right-0 flex items-center pr-3 pt-6"
+									tabIndex={-1}
+								>
+									{showPassword ? (
+										<EyeOff className="h-5 w-5 text-muted-foreground" />
+									) : (
+										<Eye className="h-5 w-5 text-muted-foreground" />
+									)}
+								</button>
+							</div>
+
+							{loginError && (
+								<Alert variant="destructive">
+									<AlertTitle>Error</AlertTitle>
+									<AlertDescription>{loginError}</AlertDescription>
+								</Alert>
 							)}
-						/>
-						<PasswordInput name="password" control={control} />
-						{loginError && (
-							<Alert severity="error" sx={{ mt: 2 }}>
-								{loginError}
-							</Alert>
-						)}
-						{resetMessage && (
-							<Alert severity="success" sx={{ mt: 2 }}>
-								{resetMessage}
-							</Alert>
-						)}
-						{resetError && (
-							<Alert severity="error" sx={{ mt: 2 }}>
-								{resetError}
-							</Alert>
-						)}
-						<Button
-							type="submit"
-							fullWidth
-							variant="outlined"
-							sx={{ mt: 3, mb: 2 }}
-							disabled={isLoading}
-						>
-							Sign In
-						</Button>
-						<Button
-							type="button"
-							fullWidth
-							variant="text"
-							sx={{ mb: 2 }}
-							onClick={handleResetPassword}
-							disabled={isLoading}
-						>
-							Forgot Password?
-						</Button>
-						{isAuthenticated && (
+							{resetMessage && (
+								<Alert>
+									<AlertDescription>{resetMessage}</AlertDescription>
+								</Alert>
+							)}
+							{resetError && (
+								<Alert variant="destructive">
+									<AlertTitle>Error</AlertTitle>
+									<AlertDescription>{resetError}</AlertDescription>
+								</Alert>
+							)}
+
+							<Button type="submit" className="w-full" disabled={isLoading}>
+								Sign In
+							</Button>
 							<Button
 								type="button"
-								fullWidth
-								variant="outlined"
-								color="secondary"
-								sx={{ mt: 1 }}
-								onClick={handleLogout}
+								variant="link"
+								className="w-full"
+								onClick={handleResetPassword}
+								disabled={isLoading}
 							>
-								Log Out
+								Forgot Password?
 							</Button>
-						)}
-					</form>
-				</FormProvider>
-			</Box>
-			<Box component="footer" sx={{ mt: 8, mb: 4, textAlign: "center" }}>
-				<Typography variant="body2" color="text.secondary">
-					Made with ❤️ in Hacky Valley at 3 am last night
-				</Typography>
-			</Box>
-		</Container>
+							{isAuthenticated && (
+								<Button
+									type="button"
+									variant="outline"
+									className="w-full"
+									onClick={handleLogout}
+								>
+									Log Out
+								</Button>
+							)}
+						</form>
+					</FormProvider>
+				</CardContent>
+
+				<div className="px-6 pb-6 text-center">
+					<p className="text-sm text-muted-foreground">
+						Made with ❤️ in Hacky Valley at 3 am last night
+					</p>
+				</div>
+			</Card>
+		</div>
 	);
 }

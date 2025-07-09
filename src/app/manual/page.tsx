@@ -1,237 +1,285 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import { useState, useMemo } from "react";
+import { useForm, Controller } from "react-hook-form";
+import { Card, CardContent } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import {
-	Button,
-	Container,
-	Typography,
-	FormControl,
 	Select,
-	MenuItem,
-	InputLabel,
-	Snackbar,
-	Autocomplete,
-	TextField,
-	Box,
-	Alert,
-} from "@mui/material";
-import { useFirebase } from "@/common/context";
-
-// Import your new React Query hooks and types
+	SelectTrigger,
+	SelectValue,
+	SelectContent,
+	SelectItem,
+} from "@/components/ui/select";
+import {
+	Popover,
+	PopoverTrigger,
+	PopoverContent,
+} from "@/components/ui/popover";
+import {
+	Command,
+	CommandInput,
+	CommandList,
+	CommandEmpty,
+	CommandItem,
+} from "@/components/ui/command";
+import { Toaster, toast } from "sonner";
 import { useAllEvents, useCheckInEvent } from "@/common/api/event";
 import { useAllUsers } from "@/common/api/user";
-import { EventEntityResponse, EventType } from "@/common/api/event/entity";
-import { UserEntity } from "@/common/api/user/entity";
 import { useActiveHackathonForStatic } from "@/common/api/hackathon";
+import { useFirebase } from "@/common/context";
 
-const ManualCheckIn: React.FC = () => {
-	// Local states
-	const [selectedUser, setSelectedUser] = useState<UserEntity | null>(null);
-	const [selectedEvent, setSelectedEvent] = useState<string>("");
-	const [snackbar, setSnackbar] = useState<{
-		open: boolean;
-		message: string;
-		severity: "success" | "error";
-	} | null>(null);
+interface FormValues {
+	userId: string;
+	eventId: string;
+}
 
+export default function ManualCheckIn() {
 	const { user } = useFirebase();
-
-	// 1) Fetch all events
 	const {
-		data: eventsData,
+		data: events = [],
 		isLoading: eventsLoading,
 		isError: eventsError,
 	} = useAllEvents();
-
-	// 2) Fetch all users
 	const {
-		data: usersData,
+		data: users = [],
 		isLoading: usersLoading,
 		isError: usersError,
 	} = useAllUsers();
-
-	const { data: hackathonData } = useActiveHackathonForStatic();
-
-	// 3) Mutation for checking in an attendee
+	const { data: hackathon } = useActiveHackathonForStatic();
 	const { mutate: checkInMutate } = useCheckInEvent();
 
-	// If you want to auto-select the first event once events are loaded:
-	useEffect(() => {
-		if (
-			!eventsLoading &&
-			eventsData &&
-			eventsData.length > 0 &&
-			!selectedEvent
-		) {
-			// Optionally auto-select the first event of type "checkIn", or else the first in the list
-			const checkInEvent = eventsData.find(
-				(evt) => evt.type === EventType.checkIn
+	const [isSubmitting, setIsSubmitting] = useState(false);
+	const [userQuery, setUserQuery] = useState("");
+	const [isPopoverOpen, setIsPopoverOpen] = useState(false);
+
+	const { control, handleSubmit, watch, resetField, setValue } =
+		useForm<FormValues>({
+			defaultValues: { userId: "", eventId: "" },
+		});
+
+	const selectedUserId = watch("userId");
+	const selectedEventId = watch("eventId");
+
+	const selectedUser = useMemo(
+		() => users.find((u) => u.id === selectedUserId),
+		[users, selectedUserId]
+	);
+	const selectedEvent = useMemo(
+		() => events.find((e) => e.id === selectedEventId),
+		[events, selectedEventId]
+	);
+
+	// Improved search filtering with better text matching
+	const filteredUsers = useMemo(() => {
+		if (!userQuery.trim()) return users;
+
+		const searchTerm = userQuery.toLowerCase().trim();
+
+		return users.filter((u) => {
+			const fullName = `${u.firstName} ${u.lastName}`.toLowerCase();
+			const email = u.email.toLowerCase();
+			const firstName = u.firstName.toLowerCase();
+			const lastName = u.lastName.toLowerCase();
+
+			return (
+				fullName.includes(searchTerm) ||
+				email.includes(searchTerm) ||
+				firstName.includes(searchTerm) ||
+				lastName.includes(searchTerm) ||
+				// Also check if search term matches parts of the name
+				searchTerm
+					.split(" ")
+					.every((term) => fullName.includes(term) || email.includes(term))
 			);
-			setSelectedEvent(checkInEvent?.id || eventsData[0].id);
-		}
-	}, [eventsData, eventsLoading, selectedEvent]);
+		});
+	}, [users, userQuery]);
 
-	const handleCheckIn = useCallback(() => {
+	// Clear search when user is selected
+	const handleUserSelect = (userId: string) => {
+		setValue("userId", userId);
+		setUserQuery("");
+		setIsPopoverOpen(false);
+	};
+
+	// Clear user selection when search input is manually cleared
+	const handleSearchChange = (value: string) => {
+		setUserQuery(value);
+		if (!value.trim() && selectedUserId) {
+			setValue("userId", "");
+		}
+	};
+
+	const onSubmit = (data: FormValues) => {
 		if (!user) {
-			setSnackbar({
-				open: true,
-				message: "You must be logged in to perform this action",
-				severity: "error",
-			});
-			return;
-		}
-		if (!selectedUser) {
-			setSnackbar({
-				open: true,
-				message: "Please select a user",
-				severity: "error",
-			});
-			return;
-		}
-		if (!selectedEvent) {
-			setSnackbar({
-				open: true,
-				message: "Please select an event",
-				severity: "error",
-			});
+			toast.error("You must be logged in to perform this action.");
 			return;
 		}
 
-		if (!hackathonData) {
-			setSnackbar({
-				open: true,
-				message: "No active hackathon found",
-				severity: "error",
-			});
+		if (!hackathon) {
+			toast.error("No active hackathon found.");
 			return;
 		}
 
-		// Because our useCheckInEvent signature is:
-		//   mutationFn: ({ id, userId, data }: { id: string; userId: string; data: CreateScanEntity })
-		// We'll pass "selectedEvent" as "id", "selectedUser.id" as "userId", and
-		// data as an object that your backend expects (e.g. { organizerId: user.uid }).
+		setIsSubmitting(true);
 		checkInMutate(
 			{
-				id: selectedEvent,
-				userId: selectedUser.id,
-				data: {
-					hackathonId: hackathonData.id,
-					organizerId: user.uid,
-				},
+				id: data.eventId,
+				userId: data.userId,
+				data: { hackathonId: hackathon.id, organizerId: user.uid },
 			},
 			{
 				onSuccess: () => {
-					setSnackbar({
-						open: true,
-						message: `${selectedUser.firstName} ${selectedUser.lastName} checked in successfully`,
-						severity: "success",
-					});
-					setSelectedUser(null);
+					toast.success(
+						`${selectedUser?.firstName} ${selectedUser?.lastName} checked in!`
+					);
+					resetField("userId");
+					setUserQuery("");
 				},
-				onError: (err: Error) => {
-					console.error("Check-in failed", err);
-					setSnackbar({
-						open: true,
-						message: `Error checking in user: ${err.message}`,
-						severity: "error",
-					});
+				onError: (err: any) => {
+					console.error(err);
+					toast.error(`Error: ${err.message || err}`);
 				},
+				onSettled: () => setIsSubmitting(false),
 			}
 		);
-	}, [user, selectedUser, selectedEvent, hackathonData, checkInMutate]);
-
-	const handleSnackbarClose = (
-		event?: React.SyntheticEvent | Event,
-		reason?: string
-	) => {
-		if (reason === "clickaway") return;
-		setSnackbar(null);
 	};
 
-	// Convert undefined data into empty arrays to avoid optional chaining
-	const events: EventEntityResponse[] = eventsData ?? [];
-	const users: UserEntity[] = usersData ?? [];
-
 	return (
-		<Container maxWidth="sm" sx={{ marginTop: 4 }}>
-			<Typography variant="h6" gutterBottom>
-				Manual User Check-In
-			</Typography>
+		<>
+			<Toaster position="bottom-right" richColors />
+			<div className="min-h-screen flex items-center justify-center p-4">
+				<Card className="w-full max-w-lg">
+					<CardContent className="space-y-6 p-6">
+						<h2 className="text-xl font-semibold">Manual User Check-In</h2>
 
-			{/* Loading / Error states for events and users */}
-			{(eventsLoading || usersLoading) && (
-				<Typography>Loading events and users...</Typography>
-			)}
-			{(eventsError || usersError) && (
-				<Alert severity="error">
-					Error fetching events or users. Please try again later.
-				</Alert>
-			)}
+						<form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+							{/* User Search Popover */}
+							<div>
+								<Label htmlFor="user-popover">Search User</Label>
+								<Controller
+									name="userId"
+									control={control}
+									render={({ field }) => (
+										<Popover>
+											<PopoverTrigger asChild>
+												<Input
+													id="user-popover"
+													placeholder="Search by name or email"
+													value={
+														selectedUser && !isPopoverOpen
+															? `${selectedUser.firstName} ${selectedUser.lastName} (${selectedUser.email})`
+															: userQuery
+													}
+													onChange={(e) => {
+														handleSearchChange(e.target.value);
+														if (!isPopoverOpen) setIsPopoverOpen(true);
+													}}
+													onFocus={() => setIsPopoverOpen(true)}
+													className="w-full cursor-pointer text-left"
+												/>
+											</PopoverTrigger>
+											<PopoverContent
+												side="bottom"
+												align="start"
+												className="w-[var(--radix-popover-trigger-width)] p-0"
+												sideOffset={4}
+											>
+												<Command shouldFilter={false}>
+													<CommandInput
+														placeholder="Type a name or email..."
+														value={userQuery}
+														onValueChange={handleSearchChange}
+														className="border-none focus:ring-0"
+													/>
+													<CommandList className="max-h-[200px]">
+														{usersLoading ? (
+															<div className="p-4 text-sm text-muted-foreground text-center">
+																Loading users...
+															</div>
+														) : filteredUsers.length === 0 ? (
+															<CommandEmpty>
+																{userQuery.trim()
+																	? "No users found."
+																	: "Start typing to search users."}
+															</CommandEmpty>
+														) : (
+															filteredUsers.map((u) => (
+																<CommandItem
+																	key={u.id}
+																	onSelect={() => handleUserSelect(u.id)}
+																	className="cursor-pointer"
+																>
+																	<div className="flex flex-col">
+																		<span className="font-medium">
+																			{u.firstName} {u.lastName}
+																		</span>
+																		<span className="text-sm text-muted-foreground">
+																			{u.email}
+																		</span>
+																	</div>
+																</CommandItem>
+															))
+														)}
+													</CommandList>
+												</Command>
+											</PopoverContent>
+										</Popover>
+									)}
+								/>
+							</div>
 
-			{/* 1) Autocomplete to select user */}
-			<Autocomplete
-				options={users}
-				value={selectedUser}
-				onChange={(event, newValue) => setSelectedUser(newValue)}
-				getOptionLabel={(option) =>
-					`${option.firstName} ${option.lastName} (${option.email})`
-				}
-				renderInput={(params) => (
-					<TextField {...params} label="Search User" variant="outlined" />
-				)}
-				fullWidth
-				sx={{ marginTop: 2 }}
-				disabled={usersLoading || usersError !== false}
-			/>
+							{/* Event Select */}
+							<div>
+								<Label htmlFor="event-select">Select Event</Label>
+								<Controller
+									name="eventId"
+									control={control}
+									render={({ field }) => (
+										<Select
+											onValueChange={field.onChange}
+											value={field.value}
+											disabled={eventsLoading || eventsError}
+										>
+											<SelectTrigger id="event-select" className="w-full">
+												<SelectValue placeholder="Choose an event" />
+											</SelectTrigger>
+											<SelectContent>
+												{eventsLoading ? (
+													<div className="p-4 text-sm text-muted-foreground text-center">
+														Loading events...
+													</div>
+												) : events.length === 0 ? (
+													<div className="p-4 text-sm text-muted-foreground text-center">
+														No events available
+													</div>
+												) : (
+													events.map((e) => (
+														<SelectItem key={e.id} value={e.id}>
+															{e.name}
+														</SelectItem>
+													))
+												)}
+											</SelectContent>
+										</Select>
+									)}
+								/>
+							</div>
 
-			{/* 2) Select for event */}
-			<FormControl fullWidth sx={{ marginTop: 2 }}>
-				<InputLabel id="event-select-label">Select Event</InputLabel>
-				<Select
-					labelId="event-select-label"
-					value={selectedEvent}
-					onChange={(e) => setSelectedEvent(e.target.value as string)}
-					label="Select Event"
-					disabled={eventsLoading || eventsError !== false}
-				>
-					{events.map((event) => (
-						<MenuItem key={event.id} value={event.id}>
-							{event.name}
-						</MenuItem>
-					))}
-				</Select>
-			</FormControl>
-
-			{/* 3) Check-In button */}
-			<Box display="flex" justifyContent="center" marginTop={3}>
-				<Button
-					variant="contained"
-					color="primary"
-					onClick={handleCheckIn}
-					disabled={!selectedUser || !selectedEvent}
-				>
-					Check In User
-				</Button>
-			</Box>
-
-			{/* Snackbar Notifications */}
-			{snackbar && (
-				<Snackbar
-					open={snackbar.open}
-					autoHideDuration={3000}
-					onClose={handleSnackbarClose}
-				>
-					<Alert
-						severity={snackbar.severity}
-						onClose={handleSnackbarClose}
-						sx={{ width: "100%" }}
-					>
-						{snackbar.message}
-					</Alert>
-				</Snackbar>
-			)}
-		</Container>
+							{/* Check-In Button */}
+							<Button
+								type="submit"
+								className="w-full"
+								disabled={!selectedUserId || !selectedEventId || isSubmitting}
+							>
+								{isSubmitting ? "Checking In..." : "Check In User"}
+							</Button>
+						</form>
+					</CardContent>
+				</Card>
+			</div>
+		</>
 	);
-};
-
-export default ManualCheckIn;
+}

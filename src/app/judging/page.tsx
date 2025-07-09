@@ -1,38 +1,37 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import {
-	Container,
-	Typography,
-	Select,
-	MenuItem,
-	FormControl,
-	InputLabel,
-	Button,
-	Snackbar,
-	Alert,
-	Box,
-	Slider,
-	Paper,
-	Grid,
-	TextField,
-	Tabs,
-	Tab,
-} from "@mui/material";
-import { SelectChangeEvent } from "@mui/material";
-
+import type React from "react";
+import { useState, useEffect } from "react";
 import {
 	useAllScores,
 	useAllProjects,
 	useCreateScore,
 	useUpdateScore,
 	useAssignAdditonalJudging,
-	ScoreCreateEntity,
-	ScoreUpdateEntity,
+	type ScoreCreateEntity,
+	type ScoreUpdateEntity,
 } from "@/common/api/judging";
 import { useFirebase } from "@/common/context";
 import { useActiveHackathonForStatic } from "@/common/api/hackathon";
 import { useFlagState } from "@/common/api/flag";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import {
+	Select,
+	SelectTrigger,
+	SelectValue,
+	SelectContent,
+	SelectItem,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Slider } from "@/components/ui/slider";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { Toaster, toast } from "sonner";
+import { CheckCircle, Clock, AlertCircle } from "lucide-react";
 
 type CriteriaType =
 	| "creativity"
@@ -55,56 +54,60 @@ const criteriaLabels: Record<CriteriaType, string> = {
 	challenge3: "Timeless Tech",
 };
 
+const criteriaDescriptions: Record<CriteriaType, string> = {
+	creativity: "How original and innovative is the project?",
+	technical: "What impact does this project have?",
+	implementation: "How well is the project executed?",
+	clarity: "How clear is the presentation and documentation?",
+	growth: "How much learning and growth is demonstrated?",
+	challenge1: "How well does it utilize machine learning?",
+	challenge2: "What entrepreneurial value does it provide?",
+	challenge3: "How does it leverage timeless technology?",
+};
+
 type Mode = "judging" | "history";
 
-const JudgingPage: React.FC = () => {
+export default function JudgingPage() {
 	const { user } = useFirebase();
 	const [mode, setMode] = useState<Mode>("judging");
 	const [assignedProjects, setAssignedProjects] = useState<number[]>([]);
-	const [selectedProjectId, setSelectedProjectId] = useState<number | "">("");
+	const [selectedProjectId, setSelectedProjectId] = useState<number | null>(
+		null
+	);
 	const [scoreValues, setScoreValues] = useState<ScoreUpdateEntity>({});
-	const [snackbar, setSnackbar] = useState<{
-		open: boolean;
-		message: string;
-		severity: "success" | "error";
-	} | null>(null);
-
-	// State to store notes per project.
-	const [notesMap, setNotesMap] = useState<{ [key: number]: string }>({});
+	const [notesMap, setNotesMap] = useState<Record<number, string>>({});
+	const [isSubmitting, setIsSubmitting] = useState(false);
 
 	const { data: allProjects, isLoading: loadingProjects } = useAllProjects();
 	const { data: allScores, isLoading: loadingScores } = useAllScores();
 	const { data: hackathonData } = useActiveHackathonForStatic();
-
 	const { mutate: createScoreMutate } = useCreateScore();
 	const { mutate: updateScoreMutate } = useUpdateScore();
 	const { mutate: assignAdditionalJudgingMutate } = useAssignAdditonalJudging();
 	const { data: judgingFlag, isLoading: flagLoading } = useFlagState("judging");
 
-	// — NEW: Track when the initial load of projects+scores has finished —
 	const [initialFetchDone, setInitialFetchDone] = useState(false);
 
-	// Load saved notes from local storage.
+	// Load notes from localStorage
 	useEffect(() => {
-		const savedNotes = localStorage.getItem("judgingNotes");
-		if (savedNotes) {
-			try {
-				const parsed = JSON.parse(savedNotes);
-				setNotesMap(parsed);
-			} catch (error) {
-				console.error("Error parsing saved notes", error);
+		try {
+			const saved = localStorage.getItem("judgingNotes");
+			if (saved) {
+				setNotesMap(JSON.parse(saved));
 			}
+		} catch (error) {
+			console.error("Error loading notes from localStorage:", error);
 		}
 	}, []);
 
-	// Once both loading flags are false, we know we have the first batch of data.
+	// Set initial fetch done
 	useEffect(() => {
 		if (!loadingProjects && !loadingScores) {
 			setInitialFetchDone(true);
 		}
 	}, [loadingProjects, loadingScores]);
 
-	// Whenever scores/projects change, update assignedProjects list.
+	// Update assigned projects based on mode and scores
 	useEffect(() => {
 		if (
 			!loadingProjects &&
@@ -113,31 +116,25 @@ const JudgingPage: React.FC = () => {
 			allProjects &&
 			allScores
 		) {
-			const filteredScores = allScores.filter((score) => {
-				// In Judging mode → only unsubmitted; in History mode → only submitted.
-				return (
-					score.judge?.id === user.uid &&
-					(mode === "judging" ? !score.submitted : score.submitted)
-				);
-			});
-			const projectIds = Array.from(
-				new Set(filteredScores.map((score) => score.project.id))
+			const filtered = allScores.filter(
+				(s) =>
+					s.judge?.id === user.uid &&
+					(mode === "judging" ? !s.submitted : s.submitted)
 			);
-			setAssignedProjects(projectIds);
+			const ids = Array.from(new Set(filtered.map((s) => s.project.id)));
+			setAssignedProjects(ids);
 
-			if (projectIds.length > 0) {
-				setSelectedProjectId(projectIds[0]);
-			} else {
-				setSelectedProjectId("");
+			// Set first project as selected if none selected or current selection is not in the list
+			if (!selectedProjectId || !ids.includes(selectedProjectId)) {
+				setSelectedProjectId(ids[0] || null);
 			}
 		}
-	}, [allScores, loadingScores, user?.uid, mode, allProjects, loadingProjects]);
+	}, [allScores, loadingScores, loadingProjects, user?.uid, mode, allProjects]);
 
-	// — UPDATED: Auto‐fetch new assignments only after the first‐load is done,
-	//    and only when mode="judging" & assignedProjects is empty. —
+	// Fetch additional assignments if needed
 	useEffect(() => {
 		if (
-			initialFetchDone && // wait until initial data load
+			initialFetchDone &&
 			mode === "judging" &&
 			!loadingProjects &&
 			!loadingScores &&
@@ -145,84 +142,61 @@ const JudgingPage: React.FC = () => {
 			assignedProjects.length === 0
 		) {
 			assignAdditionalJudgingMutate(user.uid, {
-				onSuccess: () => {
-					setSnackbar({
-						open: true,
-						message: "New assignments have been fetched.",
-						severity: "success",
-					});
-				},
-				onError: (err) => {
-					console.error(err);
-					setSnackbar({
-						open: true,
-						message: "Error fetching new assignments.",
-						severity: "error",
-					});
-				},
+				onSuccess: () => toast.success("New assignments fetched."),
+				onError: () => toast.error("Error fetching new assignments."),
 			});
 		}
 	}, [
 		initialFetchDone,
-		assignedProjects,
 		mode,
-		user?.uid,
+		assignedProjects.length,
 		loadingProjects,
 		loadingScores,
+		user?.uid,
 		assignAdditionalJudgingMutate,
 	]);
 
-	// When selectedProjectId changes, load that project's existing score if any.
+	// Load existing scores when project is selected
 	useEffect(() => {
-		if (selectedProjectId !== "" && !loadingScores && user?.uid && allScores) {
-			const existingScore = allScores.find(
-				(score) =>
-					score.judge?.id === user.uid && score.project.id === selectedProjectId
+		if (selectedProjectId && allScores && user?.uid) {
+			const existing = allScores.find(
+				(s) => s.judge?.id === user.uid && s.project.id === selectedProjectId
 			);
 			setScoreValues({
-				creativity: existingScore?.creativity ?? 0,
-				technical: existingScore?.technical ?? 0,
-				implementation: existingScore?.implementation ?? 0,
-				clarity: existingScore?.clarity ?? 0,
-				growth: existingScore?.growth ?? 0,
-				challenge1: existingScore?.challenge1 ?? 0,
-				challenge2: existingScore?.challenge2 ?? 0,
-				challenge3: existingScore?.challenge3 ?? 0,
-				submitted: existingScore?.submitted ?? false,
+				creativity: existing?.creativity ?? 0,
+				technical: existing?.technical ?? 0,
+				implementation: existing?.implementation ?? 0,
+				clarity: existing?.clarity ?? 0,
+				growth: existing?.growth ?? 0,
+				challenge1: existing?.challenge1 ?? 0,
+				challenge2: existing?.challenge2 ?? 0,
+				challenge3: existing?.challenge3 ?? 0,
+				submitted: existing?.submitted ?? false,
 			});
 		}
-	}, [selectedProjectId, allScores, loadingScores, user?.uid]);
+	}, [selectedProjectId, allScores, user?.uid]);
 
-	const handleModeChange = (event: React.SyntheticEvent, newValue: Mode) => {
-		setMode(newValue);
+	const handleModeChange = (value: string) => setMode(value as Mode);
+
+	const handleProjectChange = (value: string) => {
+		const projectId = Number.parseInt(value);
+		setSelectedProjectId(projectId);
 	};
 
-	const handleProjectChange = (event: SelectChangeEvent<number>) => {
-		setSelectedProjectId(event.target.value as number);
+	const handleScoreChange = (criteria: CriteriaType, value: number[]) => {
+		setScoreValues((prev) => ({ ...prev, [criteria]: value[0] }));
 	};
 
-	const handleScoreChange = (
-		criteria: CriteriaType,
-		value: number | number[]
-	) => {
-		setScoreValues((prev) => ({ ...prev, [criteria]: value as number }));
-	};
-
-	const handleSnackbarClose = () => {
-		setSnackbar(null);
-	};
-
-	// Handle note field changes (notes remain editable in both modes).
-	const handleNotesChange = (
-		e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-	) => {
-		if (selectedProjectId !== "") {
-			const newNote = e.target.value;
-			setNotesMap((prev) => {
-				const updated = { ...prev, [selectedProjectId as number]: newNote };
+	const handleNotesChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+		if (selectedProjectId) {
+			const updated = { ...notesMap, [selectedProjectId]: e.target.value };
+			try {
 				localStorage.setItem("judgingNotes", JSON.stringify(updated));
-				return updated;
-			});
+				setNotesMap(updated);
+			} catch (error) {
+				console.error("Error saving notes to localStorage:", error);
+				toast.error("Failed to save notes");
+			}
 		}
 	};
 
@@ -237,310 +211,395 @@ const JudgingPage: React.FC = () => {
 		"challenge3",
 	];
 
-	const validateScores = () =>
-		allCriteria.every(
-			(criteria) =>
-				typeof scoreValues[criteria] === "number" && scoreValues[criteria]! >= 0
-		);
+	const getApplicableCriteria = () => {
+		if (!selectedProjectId || !allProjects) return [];
 
-	const handleSubmit = () => {
-		if (!user?.uid || selectedProjectId === "") return;
+		return allCriteria.filter((criteria) => {
+			if (criteria.startsWith("challenge")) {
+				const proj = allProjects.find((p) => p.id === selectedProjectId);
+				const cats = proj?.categories?.split(",").map((c) => c.trim()) || [];
+				return cats.includes(criteria);
+			}
+			return true;
+		});
+	};
+
+	const validateScores = () => {
+		const applicableCriteria = getApplicableCriteria();
+		return applicableCriteria.every(
+			(c) => typeof scoreValues[c] === "number" && scoreValues[c] > 0
+		);
+	};
+
+	const handleSubmit = async () => {
+		if (!user?.uid || !selectedProjectId) return;
 
 		if (!validateScores()) {
-			setSnackbar({
-				open: true,
-				message: "Please score all criteria before submitting.",
-				severity: "error",
-			});
+			toast.error(
+				"Please score all applicable criteria with values greater than 0."
+			);
 			return;
 		}
 
-		const payload: ScoreCreateEntity | ScoreUpdateEntity = {
-			...scoreValues,
+		setIsSubmitting(true);
+		const payload = { ...scoreValues, submitted: true };
+		const existing = allScores?.find(
+			(s) => s.judge?.id === user.uid && s.project.id === selectedProjectId
+		);
+
+		const onSuccess = () => {
+			toast.success("Scores submitted successfully.");
+			setIsSubmitting(false);
+		};
+
+		const onError = (error: any) => {
+			toast.error("Error submitting scores.");
+			console.error("Submission error:", error);
+			setIsSubmitting(false);
+		};
+
+		if (existing) {
+			updateScoreMutate(
+				{
+					id: existing.judge.id,
+					projectId: existing.project.id,
+					data: payload,
+				},
+				{ onSuccess, onError }
+			);
+		} else {
+			createScoreMutate(payload as ScoreCreateEntity, { onSuccess, onError });
+		}
+	};
+
+	const handleProjectMissing = async () => {
+		if (!user?.uid || !selectedProjectId) return;
+
+		setIsSubmitting(true);
+		const missing = allCriteria.reduce((acc, k) => ({ ...acc, [k]: 0 }), {
 			submitted: true,
-		};
-
-		const onSuccess = (message: string) => {
-			setSnackbar({ open: true, message, severity: "success" });
-			setScoreValues((prev) => ({ ...prev, submitted: true }));
-		};
-
-		const existingScore = allScores?.find(
-			(score) =>
-				score.judge?.id === user.uid && score.project.id === selectedProjectId
+		} as any);
+		const existing = allScores?.find(
+			(s) => s.judge?.id === user.uid && s.project.id === selectedProjectId
 		);
 
-		if (existingScore) {
+		const onSuccess = () => {
+			toast.success("Missing project score submitted.");
+			setIsSubmitting(false);
+		};
+
+		const onError = (error: any) => {
+			toast.error("Error submitting missing project score.");
+			console.error("Missing project error:", error);
+			setIsSubmitting(false);
+		};
+
+		if (existing) {
 			updateScoreMutate(
 				{
-					id: existingScore.judge.id,
-					projectId: existingScore.project.id,
-					data: payload as ScoreUpdateEntity,
+					id: existing.judge.id,
+					projectId: existing.project.id,
+					data: missing,
 				},
-				{
-					onSuccess: () => onSuccess("Scores submitted successfully."),
-					onError: (err) => {
-						console.error(err);
-						setSnackbar({
-							open: true,
-							message: "Error updating scores.",
-							severity: "error",
-						});
-					},
-				}
+				{ onSuccess, onError }
 			);
 		} else {
-			createScoreMutate(payload as ScoreCreateEntity, {
-				onSuccess: () => onSuccess("Scores submitted successfully."),
-				onError: (err) => {
-					console.error(err);
-					setSnackbar({
-						open: true,
-						message: "Error submitting scores.",
-						severity: "error",
-					});
-				},
-			});
+			createScoreMutate(missing as ScoreCreateEntity, { onSuccess, onError });
 		}
 	};
 
-	// Handle "Project Missing" action: submit zeroes for all fields.
-	const handleProjectMissing = () => {
-		if (!user?.uid || selectedProjectId === "") return;
-		const missingPayload: ScoreUpdateEntity = allCriteria.reduce(
-			(acc, key) => ({ ...acc, [key]: 0 }),
-			{ submitted: true }
-		);
-
-		const onSuccess = (message: string) => {
-			setSnackbar({ open: true, message, severity: "success" });
-			setScoreValues(missingPayload);
-		};
-
-		const existingScore = allScores?.find(
-			(score) =>
-				score.judge?.id === user.uid && score.project.id === selectedProjectId
-		);
-
-		if (existingScore) {
-			updateScoreMutate(
-				{
-					id: existingScore.judge.id,
-					projectId: existingScore.project.id,
-					data: missingPayload,
-				},
-				{
-					onSuccess: () => onSuccess("Missing project score submitted."),
-					onError: (err) => {
-						console.error(err);
-						setSnackbar({
-							open: true,
-							message: "Error updating missing project score.",
-							severity: "error",
-						});
-					},
-				}
-			);
-		} else {
-			createScoreMutate(missingPayload as ScoreCreateEntity, {
-				onSuccess: () => onSuccess("Missing project score submitted."),
-				onError: (err) => {
-					console.error(err);
-					setSnackbar({
-						open: true,
-						message: "Error submitting missing project score.",
-						severity: "error",
-					});
-				},
-			});
-		}
-	};
-
-	// Render criteria sliders. In History mode, sliders are read-only.
-	const renderCriteria = (readOnly: boolean) => {
-		const selectedProject = allProjects?.find(
-			(proj) => proj.id === selectedProjectId
-		);
-		const projectChallenges = selectedProject?.categories
-			? selectedProject.categories.split(",").map((c: string) => c.trim())
-			: [];
-
-		return allCriteria
-			.filter((criteria) => {
-				if (criteria.startsWith("challenge")) {
-					return projectChallenges.includes(criteria);
-				}
-				return true;
-			})
-			.map((criteria) => (
-				<Box key={criteria} sx={{ mb: 4 }}>
-					<Typography variant="h6">{criteriaLabels[criteria]}</Typography>
-					<Slider
-						value={scoreValues[criteria] ?? 0}
-						onChange={(_, value) => handleScoreChange(criteria, value)}
-						step={1}
-						marks
-						min={0}
-						max={5}
-						valueLabelDisplay="auto"
-						disabled={readOnly}
-					/>
-				</Box>
-			));
-	};
+	const selectedProject = selectedProjectId
+		? allProjects?.find((p) => p.id === selectedProjectId)
+		: null;
+	const currentScore = selectedProjectId
+		? allScores?.find(
+				(s) => s.judge?.id === user?.uid && s.project.id === selectedProjectId
+			)
+		: null;
 
 	if (flagLoading) {
 		return (
-			<Container>
-				<Typography align="center" sx={{ mt: 4 }}>
-					Loading judging status...
-				</Typography>
-			</Container>
+			<div className="flex items-center justify-center min-h-[400px]">
+				<div className="text-center">
+					<Clock className="h-8 w-8 animate-spin mx-auto mb-2" />
+					<p>Loading judging status...</p>
+				</div>
+			</div>
 		);
 	}
 
 	if (judgingFlag && !judgingFlag.isEnabled) {
 		return (
-			<Container>
-				<Alert severity="info" sx={{ mt: 4 }}>
-					The judging period has ended. Please head over to the auditorium to
-					discuss the projects.
+			<div className="max-w-3xl mx-auto p-4">
+				<Alert>
+					<AlertCircle className="h-4 w-4" />
+					<AlertDescription>The judging period has ended.</AlertDescription>
 				</Alert>
-			</Container>
+			</div>
 		);
 	}
 
 	return (
-		<Container maxWidth="md" sx={{ mt: 4 }}>
-			<Paper elevation={3} sx={{ p: 4 }}>
-				{/* Mode Switch Tabs */}
-				<Box sx={{ display: "flex", justifyContent: "center", mb: 2 }}>
-					<Tabs
-						value={mode}
-						onChange={handleModeChange}
-						indicatorColor="primary"
-						textColor="primary"
-					>
-						<Tab label="Judging" value="judging" />
-						<Tab label="History" value="history" />
-					</Tabs>
-				</Box>
+		<>
+			<Toaster position="bottom-right" richColors />
+			<div className="max-w-4xl mx-auto p-4 space-y-6">
+				<Card>
+					<CardHeader>
+						<CardTitle>Project Judging</CardTitle>
+					</CardHeader>
+					<CardContent className="space-y-6">
+						<Tabs value={mode} onValueChange={handleModeChange}>
+							<TabsList className="grid w-full grid-cols-2">
+								<TabsTrigger value="judging">Active Judging</TabsTrigger>
+								<TabsTrigger value="history">Submitted Scores</TabsTrigger>
+							</TabsList>
 
-				{loadingProjects || loadingScores ? (
-					<Typography align="center">Loading data...</Typography>
-				) : (
-					<>
-						{/* When no projects are available */}
-						{assignedProjects.length === 0 && (
-							<Box sx={{ textAlign: "center", mt: 4 }}>
-								<Typography align="center">
-									{mode === "judging"
-										? "Fetching new assignments..."
-										: "No submitted projects to display."}
-								</Typography>
-							</Box>
-						)}
+							<TabsContent value="judging" className="space-y-6">
+								{loadingProjects || loadingScores ? (
+									<div className="flex items-center justify-center py-8">
+										<div className="text-center">
+											<Clock className="h-8 w-8 animate-spin mx-auto mb-2" />
+											<p>Loading projects and scores...</p>
+										</div>
+									</div>
+								) : assignedProjects.length === 0 ? (
+									<div className="text-center py-8">
+										<p className="text-muted-foreground">
+											Fetching new assignments...
+										</p>
+									</div>
+								) : (
+									<div className="space-y-6">
+										{/* Project Selection */}
+										<div className="space-y-2">
+											<Label htmlFor="project-select">
+												Select Project to Judge
+											</Label>
+											<Select
+												value={selectedProjectId?.toString() || ""}
+												onValueChange={handleProjectChange}
+											>
+												<SelectTrigger id="project-select">
+													<SelectValue placeholder="Choose a project..." />
+												</SelectTrigger>
+												<SelectContent>
+													{assignedProjects.map((pid) => {
+														const proj = allProjects?.find((p) => p.id === pid);
+														const score = allScores?.find(
+															(s) =>
+																s.judge?.id === user?.uid &&
+																s.project.id === pid
+														);
+														return (
+															<SelectItem key={pid} value={pid.toString()}>
+																<div className="flex items-center gap-2">
+																	<span>{proj?.name || `Project #${pid}`}</span>
+																	{score?.submitted && (
+																		<CheckCircle className="h-4 w-4 text-green-500" />
+																	)}
+																</div>
+															</SelectItem>
+														);
+													})}
+												</SelectContent>
+											</Select>
+										</div>
 
-						{assignedProjects.length > 0 && (
-							<>
-								{/* Project Selector */}
-								<FormControl fullWidth sx={{ mb: 4 }}>
-									<InputLabel id="project-select-label">
-										Select Project
-									</InputLabel>
-									<Select
-										labelId="project-select-label"
-										value={selectedProjectId}
-										onChange={handleProjectChange}
-										label="Select Project"
-									>
-										{assignedProjects.map((projectId) => {
-											const project = allProjects?.find(
-												(proj) => proj.id === projectId
+										{selectedProject && (
+											<Card>
+												<CardHeader>
+													<div className="flex items-center justify-between">
+														<CardTitle className="text-lg">
+															{selectedProject.name}
+														</CardTitle>
+														{currentScore?.submitted && (
+															<Badge
+																variant="secondary"
+																className="flex items-center gap-1"
+															>
+																<CheckCircle className="h-3 w-3" />
+																Submitted
+															</Badge>
+														)}
+													</div>
+													{selectedProject.categories && (
+														<p className="text-sm text-muted-foreground">
+															Categories: {selectedProject.categories}
+														</p>
+													)}
+												</CardHeader>
+												<CardContent className="space-y-6">
+													{/* Scoring Criteria */}
+													<div className="space-y-6">
+														<h3 className="text-lg font-semibold">
+															Scoring Criteria
+														</h3>
+														{getApplicableCriteria().map((criteria) => (
+															<div key={criteria} className="space-y-3">
+																<div className="space-y-1">
+																	<div className="flex items-center justify-between">
+																		<Label className="text-sm font-medium">
+																			{criteriaLabels[criteria]}
+																		</Label>
+																		<Badge variant="outline">
+																			{scoreValues[criteria] || 0}/5
+																		</Badge>
+																	</div>
+																	<p className="text-xs text-muted-foreground">
+																		{criteriaDescriptions[criteria]}
+																	</p>
+																</div>
+																<Slider
+																	value={[scoreValues[criteria] || 0]}
+																	onValueChange={(v) =>
+																		handleScoreChange(criteria, v)
+																	}
+																	max={5}
+																	min={0}
+																	step={1}
+																	className="w-full"
+																	disabled={mode === "history"}
+																/>
+																<div className="flex justify-between text-xs text-muted-foreground">
+																	<span>0</span>
+																	<span>1</span>
+																	<span>2</span>
+																	<span>3</span>
+																	<span>4</span>
+																	<span>5</span>
+																</div>
+															</div>
+														))}
+													</div>
+
+													<Separator />
+
+													{/* Notes Section */}
+													<div className="space-y-2">
+														<Label htmlFor="notes">
+															Your Notes (saved locally)
+														</Label>
+														<Textarea
+															id="notes"
+															value={
+																selectedProjectId !== null
+																	? notesMap[selectedProjectId] || ""
+																	: ""
+															}
+															onChange={handleNotesChange}
+															rows={4}
+															placeholder="Add your notes about this project..."
+														/>
+													</div>
+
+													{/* Action Buttons */}
+													<div className="flex gap-3">
+														<Button
+															onClick={handleSubmit}
+															className="flex-1"
+															disabled={isSubmitting || !validateScores()}
+														>
+															{isSubmitting
+																? "Submitting..."
+																: currentScore?.submitted
+																	? "Update Submission"
+																	: "Submit Scores"}
+														</Button>
+														<Button
+															variant="outline"
+															onClick={handleProjectMissing}
+															disabled={isSubmitting}
+														>
+															Mark as Missing
+														</Button>
+													</div>
+												</CardContent>
+											</Card>
+										)}
+									</div>
+								)}
+							</TabsContent>
+
+							<TabsContent value="history" className="space-y-6">
+								{loadingProjects || loadingScores ? (
+									<div className="flex items-center justify-center py-8">
+										<div className="text-center">
+											<Clock className="h-8 w-8 animate-spin mx-auto mb-2" />
+											<p>Loading submitted scores...</p>
+										</div>
+									</div>
+								) : assignedProjects.length === 0 ? (
+									<div className="text-center py-8">
+										<p className="text-muted-foreground">
+											No submitted projects to display.
+										</p>
+									</div>
+								) : (
+									<div className="space-y-4">
+										{assignedProjects.map((pid) => {
+											const proj = allProjects?.find((p) => p.id === pid);
+											const score = allScores?.find(
+												(s) => s.judge?.id === user?.uid && s.project.id === pid
 											);
-											const projectName =
-												project?.name || `Project #${projectId}`;
+											const notes = notesMap[pid] || "";
+
 											return (
-												<MenuItem key={projectId} value={projectId}>
-													{projectName}
-												</MenuItem>
+												<Card key={pid}>
+													<CardHeader>
+														<div className="flex items-center justify-between">
+															<CardTitle className="text-lg">
+																{proj?.name || `Project #${pid}`}
+															</CardTitle>
+															<Badge
+																variant="secondary"
+																className="flex items-center gap-1 text-green-700"
+															>
+																<CheckCircle className="h-3 w-3" />
+																Submitted
+															</Badge>
+														</div>
+													</CardHeader>
+													<CardContent className="space-y-4">
+														<div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+															{allCriteria.map((criteria) => {
+																const value = score?.[criteria] || 0;
+																return (
+																	<div key={criteria} className="text-center">
+																		<p className="text-sm font-medium">
+																			{criteriaLabels[criteria]}
+																		</p>
+																		<p className="text-2xl font-bold text-primary">
+																			{value}/5
+																		</p>
+																	</div>
+																);
+															})}
+														</div>
+
+														{notes && (
+															<>
+																<Separator />
+																<div className="space-y-2">
+																	<Label className="text-sm font-medium">
+																		Your Notes
+																	</Label>
+																	<div className="bg-muted/50 rounded-md p-3 text-sm whitespace-pre-wrap">
+																		{notes}
+																	</div>
+																</div>
+															</>
+														)}
+													</CardContent>
+												</Card>
 											);
 										})}
-									</Select>
-								</FormControl>
-
-								{selectedProjectId !== "" && (
-									<>
-										{/* Criteria Sliders */}
-										{renderCriteria(mode === "history")}
-										<Grid container spacing={2} sx={{ mt: 2 }}>
-											{mode === "judging" && (
-												<>
-													<Grid item xs={12}>
-														<Button
-															variant="outlined"
-															color="success"
-															onClick={handleSubmit}
-															fullWidth
-															disabled={scoreValues.submitted}
-														>
-															{scoreValues.submitted ? "Submitted" : "Submit"}
-														</Button>
-													</Grid>
-													<Grid item xs={12}>
-														<Button
-															variant="outlined"
-															color="warning"
-															onClick={handleProjectMissing}
-															fullWidth
-														>
-															Project Missing
-														</Button>
-													</Grid>
-												</>
-											)}
-										</Grid>
-
-										{/* Note Area (editable in both modes) */}
-										<Box sx={{ mt: 4 }}>
-											<Typography variant="h6">
-												Your Notes (saved locally)
-											</Typography>
-											<TextField
-												fullWidth
-												multiline
-												rows={3}
-												variant="outlined"
-												value={notesMap[selectedProjectId as number] || ""}
-												onChange={handleNotesChange}
-												placeholder="Type your notes here..."
-											/>
-										</Box>
-									</>
+									</div>
 								)}
-							</>
-						)}
-					</>
-				)}
-			</Paper>
-
-			{snackbar && (
-				<Snackbar
-					open={snackbar.open}
-					autoHideDuration={3000}
-					onClose={handleSnackbarClose}
-				>
-					<Alert
-						severity={snackbar.severity}
-						onClose={handleSnackbarClose}
-						sx={{ width: "100%" }}
-					>
-						{snackbar.message}
-					</Alert>
-				</Snackbar>
-			)}
-		</Container>
+							</TabsContent>
+						</Tabs>
+					</CardContent>
+				</Card>
+			</div>
+		</>
 	);
-};
-
-export default JudgingPage;
+}

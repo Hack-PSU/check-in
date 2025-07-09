@@ -1,88 +1,96 @@
-import React, { useState } from "react";
-import Box from "@mui/material/Box";
-import BottomNavigation from "@mui/material/BottomNavigation";
-import BottomNavigationAction from "@mui/material/BottomNavigationAction";
-import QrCodeScannerIcon from "@mui/icons-material/QrCodeScanner";
-import AssignmentIndIcon from "@mui/icons-material/AssignmentInd";
-import GavelIcon from "@mui/icons-material/Gavel";
-import LogoutIcon from "@mui/icons-material/Logout";
-import LaptopIcon from "@mui/icons-material/Laptop";
-import { useFirebase } from "@/common/context";
-import { useRouter, usePathname } from "next/navigation";
+// components/NavBar.tsx
+"use client";
 
-export default function BottomNav() {
+import React, { useState, useEffect } from "react";
+import { motion } from "framer-motion";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import {
+	QrCodeIcon,
+	UserCheckIcon,
+	GavelIcon,
+	LogOutIcon,
+	LaptopIcon,
+	LucideProps,
+} from "lucide-react";
+import { useFirebase } from "@/common/context";
+import { cn } from "@/lib/utils";
+
+interface NavItem {
+	name: string;
+	url: string;
+	icon: React.ForwardRefExoticComponent<
+		Omit<LucideProps, "ref"> & React.RefAttributes<SVGSVGElement>
+	>;
+	isLogout?: boolean;
+}
+
+export function BottomNav({ className }: { className?: string }) {
 	const { logout } = useFirebase();
 	const router = useRouter();
-	const pathname = usePathname();
+	const path = usePathname();
+	const [activeTab, setActiveTab] = useState("Log Out");
 
-	const pathToIndex: Record<string, number> = {
-		"/scan": 0,
-		"/manual": 1,
-		"/judging": 2,
-		"/auth": 3,
-		"/logs": 4,
-	};
-
-	const [currentIndex, setCurrentIndex] = useState(
-		pathToIndex[pathname] !== undefined ? pathToIndex[pathname] : 0
-	);
-
-	const handleChange = async (
-		_event: React.SyntheticEvent,
-		newValue: number
-	) => {
-		setCurrentIndex(newValue);
-		switch (newValue) {
-			case 0:
-				router.push("/scan");
-				break;
-			case 1:
-				router.push("/manual");
-				break;
-			case 2:
-				router.push("/judging");
-				break;
-			case 3:
-				await logout();
-				router.push("/auth");
-				break;
-			case 4:
-				router.push("/logs");
-				break;
-			default:
-				break;
-		}
-	};
+	const items: NavItem[] = [
+		{ name: "Scanner", url: "/scan", icon: QrCodeIcon },
+		{ name: "Manual Check In", url: "/manual", icon: UserCheckIcon },
+		{ name: "Judging", url: "/judging", icon: GavelIcon },
+		{ name: "Log Out", url: "/auth", icon: LogOutIcon, isLogout: true },
+		{ name: "Logs", url: "/logs", icon: LaptopIcon },
+	];
 
 	return (
-		<Box
-			sx={{
-				width: "100vw",
-				position: "fixed",
-				bottom: 0,
-				left: 0,
-				right: 0,
-				zIndex: 1000,
-			}}
+		<div
+			className={cn(
+				"fixed bottom-0 sm:bottom-0 left-1/2 -translate-x-1/2 z-999 mb-6 sm:pt-6",
+				className
+			)}
 		>
-			<BottomNavigation
-				showLabels
-				value={currentIndex}
-				onChange={handleChange}
-				sx={{
-					width: "100%",
-					boxShadow: "0 -1px 3px rgba(0, 0, 0, 0.2)",
-				}}
-			>
-				<BottomNavigationAction label="Scanner" icon={<QrCodeScannerIcon />} />
-				<BottomNavigationAction
-					label="Manual Check In"
-					icon={<AssignmentIndIcon />}
-				/>
-				<BottomNavigationAction label="Judging" icon={<GavelIcon />} />
-				<BottomNavigationAction label="Log Out" icon={<LogoutIcon />} />
-				<BottomNavigationAction label="Logs" icon={<LaptopIcon />} />
-			</BottomNavigation>
-		</Box>
+			<div className="flex items-center gap-3 bg-background/5 border border-border backdrop-blur-[2px] py-1 px-1 rounded-full shadow-lg">
+				{items.map((item) => {
+					const Icon = item.icon;
+					const isActive = activeTab === item.name;
+
+					const handleClick = async () => {
+						if (item.isLogout) {
+							await logout();
+						}
+						setActiveTab(item.name);
+						router.push(item.url);
+					};
+
+					return (
+						<Link
+							key={item.name}
+							href={item.url}
+							onClick={handleClick}
+							className={cn(
+								"relative cursor-pointer text-sm font-semibold px-6 py-2 rounded-full transition-colors",
+								"text-foreground/80 hover:text-primary",
+								isActive && "bg-muted text-primary"
+							)}
+						>
+							<span className="hidden md:inline">{item.name}</span>
+							<span className="md:hidden">
+								<Icon size={18} strokeWidth={2.5} />
+							</span>
+
+							{isActive && (
+								<motion.div
+									layoutId="lamp"
+									className="absolute inset-0 w-full bg-primary/200 rounded-full -z-10"
+									initial={false}
+									transition={{
+										type: "spring",
+										stiffness: 300,
+										damping: 30,
+									}}
+								></motion.div>
+							)}
+						</Link>
+					);
+				})}
+			</div>
+		</div>
 	);
 }

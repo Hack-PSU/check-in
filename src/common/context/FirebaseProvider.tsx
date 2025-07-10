@@ -234,12 +234,16 @@ const FirebaseProvider: FC<Props> = ({ children, auth }) => {
 		}
 	}, [auth]);
 
+	const actionCodeSettings = {
+		url: "https://checkin.hackpsu.org/auth",
+		handleCodeInApp: true,
+	};
 	// Send a password reset email.
 	const resetPassword = useCallback(
 		async (email: string) => {
 			setError("");
 			try {
-				await sendPasswordResetEmail(auth, email);
+				await sendPasswordResetEmail(auth, email, actionCodeSettings);
 			} catch (err: any) {
 				setError(err.message || "Password reset failed");
 				throw err;

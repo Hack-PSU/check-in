@@ -60,7 +60,7 @@ export default function EventSchedule() {
 	const [selectedEvent, setSelectedEvent] =
 		useState<EventEntityResponse | null>(null);
 	const [isSheetOpen, setIsSheetOpen] = useState(false);
-	const {data: hackathon} = useActiveHackathonForStatic();
+	const { data: hackathon } = useActiveHackathonForStatic();
 	const { data: events = [], isLoading, refetch } = useAllEvents(hackathon?.id);
 
 	const { day1Events, day2Events, day3Events, eventDays } = useMemo(() => {

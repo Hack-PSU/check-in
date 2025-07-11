@@ -3,7 +3,7 @@
   "extends": ["config:recommended"],
   "branchPrefix": "renovate/",
   "prConcurrentLimit": 10,
-  "prHourlyLimit": 10,
+  "prHourlyLimit": 0,
   "labels": ["dependencies", "renovate"],
   "timezone": "America/New_York",
   "schedule": ["* 0-23 * * *"],

@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { type EventEntityResponse, EventType } from "@/common/api/event/entity";
 import { useAllEvents } from "@/common/api/event/hook";
+import { useActiveHackathonForStatic } from "@/common/api/hackathon";
 
 const eventTypeConfig = {
 	[EventType.activity]: {
@@ -55,15 +56,12 @@ const eventTypeConfig = {
 	},
 };
 
-interface EventScheduleProps {
-	hackathonId?: string;
-}
-
-export default function EventSchedule({ hackathonId }: EventScheduleProps) {
+export default function EventSchedule() {
 	const [selectedEvent, setSelectedEvent] =
 		useState<EventEntityResponse | null>(null);
 	const [isSheetOpen, setIsSheetOpen] = useState(false);
-	const { data: events = [], isLoading, refetch } = useAllEvents(hackathonId);
+	const {data: hackathon} = useActiveHackathonForStatic();
+	const { data: events = [], isLoading, refetch } = useAllEvents(hackathon?.id);
 
 	const { day1Events, day2Events, day3Events, eventDays } = useMemo(() => {
 		if (!events.length)

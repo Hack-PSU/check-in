@@ -76,7 +76,7 @@ const quickLinks = [
 	},
 	{
 		name: "Organizer Chat",
-		url: "https://checkin.hackpsu.org/peerjs",
+		url: "/peerjs",
 		icon: MessagesSquareIcon,
 		description: "Real-time chat for organizers",
 	},

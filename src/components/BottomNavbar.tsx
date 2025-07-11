@@ -12,6 +12,7 @@ import {
 	LogOutIcon,
 	LaptopIcon,
 	ToggleRightIcon,
+	LucideCalendarDays,
 	LucideProps,
 } from "lucide-react";
 import { useFirebase } from "@/common/context";
@@ -36,9 +37,10 @@ export function BottomNav({ className }: { className?: string }) {
 		{ name: "Scanner", url: "/scan", icon: QrCodeIcon },
 		{ name: "Manual Check In", url: "/manual", icon: UserCheckIcon },
 		{ name: "Judging", url: "/judging", icon: GavelIcon },
-		{ name: "Log Out", url: "/auth", icon: LogOutIcon, isLogout: true },
-		{ name: "Logs", url: "/logs", icon: LaptopIcon },
+		{ name: "Schedule", url: "/schedule", icon: LucideCalendarDays },
+		{ name: "Tools", url: "/tools", icon: LaptopIcon },
 		{ name: "Flags", url: "/flag", icon: ToggleRightIcon },
+		{ name: "Log Out", url: "/auth", icon: LogOutIcon, isLogout: true },
 	];
 
 	return (
@@ -67,7 +69,7 @@ export function BottomNav({ className }: { className?: string }) {
 							href={item.url}
 							onClick={handleClick}
 							className={cn(
-								"relative cursor-pointer text-sm font-semibold px-6 py-2 rounded-full transition-colors",
+								"relative cursor-pointer text-sm font-semibold px-2 py-2 rounded-full transition-colors",
 								"text-foreground/80 hover:text-primary",
 								isActive && "bg-muted text-primary"
 							)}

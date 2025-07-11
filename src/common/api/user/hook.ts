@@ -7,6 +7,7 @@ import {
 	replaceUser,
 	deleteUser,
 	getUserResume,
+	getAllResumes,
 } from "./provider";
 import { UserEntity } from "./entity";
 
@@ -88,5 +89,13 @@ export function useUserResume(id: string) {
 		queryKey: ["user", id, "resume"],
 		queryFn: () => getUserResume(id),
 		enabled: Boolean(id),
+	});
+}
+
+export function useAllResumes() {
+	return useQuery<Blob>({
+		queryKey: ["users", "resumes"],
+		queryFn: () => getAllResumes(),
+		enabled: false, // Don't fetch on page load
 	});
 }

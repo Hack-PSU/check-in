@@ -30,7 +30,7 @@ export async function apiFetch<T>(
 		}
 	}
 
-	// If we're sending JSON, set the content type
+	// If sending JSON body, set content type
 	if (
 		fetchOptions.body &&
 		typeof fetchOptions.body === "string" &&
@@ -40,14 +40,12 @@ export async function apiFetch<T>(
 	}
 
 	const finalUrl = `${config.baseURL}${url}`;
-
 	const response = await fetch(finalUrl, {
 		...fetchOptions,
 		headers,
 	});
 
 	if (response.status === 401) {
-		// Optionally refresh token or logout user, etc.
 		throw new Error("Unauthorized");
 	}
 
@@ -56,11 +54,19 @@ export async function apiFetch<T>(
 		throw new Error(`Request failed (${response.status}): ${errorBody}`);
 	}
 
+	// No content
 	if (response.status === 204) {
 		return {} as T;
 	}
 
-	// Return JSON body
+	// Auto-detect response type by content-type
+	const contentType = response.headers.get("Content-Type") || "";
+	if (!contentType.includes("application/json")) {
+		// Treat non-JSON as binary (Blob)
+		return (await response.blob()) as unknown as T;
+	}
+
+	// Default to JSON
 	return (await response.json()) as T;
 }
 

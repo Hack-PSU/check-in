@@ -48,3 +48,12 @@ export async function getUserResume(id: string): Promise<Blob> {
 		method: "GET",
 	});
 }
+
+// This has a header of zip, so it should be downloaded
+export async function getAllResumes(): Promise<Blob> {
+	const res = apiFetch<Blob>(`/users/resumes`, {
+		method: "GET",
+	});
+
+	return await res;
+}

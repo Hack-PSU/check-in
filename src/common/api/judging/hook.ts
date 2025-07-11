@@ -13,6 +13,7 @@ import {
 	getProjectBreakdown,
 	assignJudging,
 	assignAdditionalJudging,
+	uploadProjectsCsv,
 } from "./provider";
 import {
 	ScoreEntity,
@@ -149,6 +150,17 @@ export function useAssignAdditonalJudging() {
 		mutationFn: (judgeId: string) => assignAdditionalJudging(judgeId),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: judgingQueryKeys.allScores });
+		},
+	});
+}
+
+export function useUploadProjectsCsv() {
+	const queryClient = useQueryClient();
+
+	return useMutation({
+		mutationFn: (file: File) => uploadProjectsCsv(file),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: judgingQueryKeys.allProjects });
 		},
 	});
 }

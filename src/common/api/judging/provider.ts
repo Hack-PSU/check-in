@@ -124,3 +124,16 @@ export const assignAdditionalJudging = async (
 		method: "POST",
 	});
 };
+
+export const uploadProjectsCsv = async (
+	file: File
+): Promise<ProjectEntity[]> => {
+	const formData = new FormData();
+	formData.append("file", file);
+
+	const data = await apiFetch<ProjectEntity[]>("/judging/projects/upload-csv", {
+		method: "POST",
+		body: formData,
+	});
+	return data;
+};

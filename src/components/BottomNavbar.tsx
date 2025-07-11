@@ -11,6 +11,7 @@ import {
 	GavelIcon,
 	LogOutIcon,
 	LaptopIcon,
+	ToggleRightIcon,
 	LucideProps,
 } from "lucide-react";
 import { useFirebase } from "@/common/context";
@@ -37,6 +38,7 @@ export function BottomNav({ className }: { className?: string }) {
 		{ name: "Judging", url: "/judging", icon: GavelIcon },
 		{ name: "Log Out", url: "/auth", icon: LogOutIcon, isLogout: true },
 		{ name: "Logs", url: "/logs", icon: LaptopIcon },
+		{ name: "Flags", url: "/flag", icon: ToggleRightIcon },
 	];
 
 	return (

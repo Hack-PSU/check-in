@@ -32,6 +32,7 @@ import {
 	Shield,
 	Activity,
 	Lock,
+	MessagesSquareIcon,
 } from "lucide-react";
 import { useUploadProjectsCsv } from "@/common/api/judging/hook";
 import { useAllResumes } from "@/common/api/user/hook";
@@ -72,6 +73,12 @@ const quickLinks = [
 		url: "https://vaultwarden.hackpsu.org",
 		icon: Lock,
 		description: "Password management",
+	},
+	{
+		name: "Organizer Chat",
+		url: "https://checkin.hackpsu.org/peerjs",
+		icon: MessagesSquareIcon,
+		description: "Real-time chat for organizers",
 	},
 ];
 

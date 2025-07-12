@@ -22,6 +22,7 @@ import {
 	GithubAuthProvider,
 } from "firebase/auth";
 import { jwtDecode } from "jwt-decode";
+import { permission } from "process";
 
 enum Role {
 	NONE = 0,
@@ -57,6 +58,7 @@ type FirebaseContextType = {
 	isLoading: boolean;
 	isAuthenticated: boolean;
 	user?: User;
+	permission?: number;
 	token: string;
 	error: string;
 	loginWithEmailAndPassword(email: string, password: string): Promise<void>;
@@ -271,6 +273,7 @@ const FirebaseProvider: FC<Props> = ({ children, auth }) => {
 		() => ({
 			isLoading,
 			isAuthenticated: !!user && !error,
+			permission: user ? getRole(token) : undefined,
 			user: user || undefined,
 			token,
 			error,
@@ -284,6 +287,7 @@ const FirebaseProvider: FC<Props> = ({ children, auth }) => {
 		[
 			isLoading,
 			user,
+			permission,
 			token,
 			error,
 			loginWithEmailAndPassword,

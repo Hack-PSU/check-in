@@ -52,7 +52,7 @@ const quickLinks = [
 	},
 	{
 		name: "Email System",
-		url: "https://emails.hackpsu.org",
+		url: "https://email.hackpsu.org",
 		icon: Mail,
 		description: "Email management platform",
 	},

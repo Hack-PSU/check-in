@@ -4,6 +4,7 @@ import "./globals.css";
 import { LayoutProvider } from "@/common/context";
 import { BottomNav } from "@/components/BottomNavbar";
 import { Toaster } from "sonner";
+import { Analytics } from "@vercel/analytics/next";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -25,6 +26,7 @@ export default function RootLayout({
 					<BottomNav />
 					<Toaster richColors position="bottom-right" />
 				</LayoutProvider>
+				<Analytics />
 			</body>
 		</html>
 	);

@@ -1,302 +1,177 @@
-import React, {
+
+"use client";
+
+import type React from "react";
+import {
 	createContext,
 	useContext,
 	useEffect,
 	useState,
 	useCallback,
 	useMemo,
-	FC,
+	type FC,
 } from "react";
-import {
-	Auth,
-	User,
-	getIdToken,
-	onAuthStateChanged,
-	onIdTokenChanged,
-	signInWithEmailAndPassword,
-	createUserWithEmailAndPassword,
-	signInWithPopup,
-	signOut,
-	sendPasswordResetEmail,
-	GoogleAuthProvider,
-	GithubAuthProvider,
-} from "firebase/auth";
-import { jwtDecode } from "jwt-decode";
-import { permission } from "process";
+import { type Auth, type User, signOut } from "firebase/auth";
+import { auth } from "@/common/config/firebase";
 
-enum Role {
-	NONE = 0,
-	VOLUNTEER,
-	TEAM,
-	EXEC,
-	TECH,
-	FINANCE,
-}
-
-const MINIMUM_ROLE = Role.NONE; // Only users with a role >= TEAM may access the app
-
-// Helpers to decode the JWT and extract the role claim.
-// (Assumes your custom claim is stored under "production" or "staging".)
-function extractAuthToken(token: string): string {
-	return token.startsWith("Bearer ") ? token.slice(7) : token;
-}
-
-function getRole(token: string): number {
-	try {
-		const extractedToken = extractAuthToken(token);
-		const decoded: any = jwtDecode(extractedToken);
-		// Try to read the role from either "production" or "staging"
-		const role = decoded.production ?? decoded.staging;
-		return role !== undefined ? role : Role.NONE;
-	} catch {
-		return Role.NONE;
-	}
-}
-
-// Public context type – notice we are not using custom error types here.
 type FirebaseContextType = {
+	auth: Auth;
 	isLoading: boolean;
 	isAuthenticated: boolean;
 	user?: User;
-	permission?: number;
-	token: string;
-	error: string;
-	loginWithEmailAndPassword(email: string, password: string): Promise<void>;
-	signUpWithEmailAndPassword(email: string, password: string): Promise<void>;
-	signInWithGoogle(): Promise<void>;
-	signInWithGithub(): Promise<void>;
-	resetPassword(email: string): Promise<void>;
+	token?: string;
+	error?: string;
+	verifySession(): Promise<void>;
 	logout(): Promise<void>;
 };
 
 const FirebaseContext = createContext<FirebaseContextType | null>(null);
 
-type Props = {
-	children: React.ReactNode;
-	auth: Auth;
-};
+type Props = { children: React.ReactNode };
 
-const FirebaseProvider: FC<Props> = ({ children, auth }) => {
-	const [isLoading, setIsLoading] = useState<boolean>(true);
+export const FirebaseProvider: FC<Props> = ({ children }) => {
 	const [user, setUser] = useState<User | null>(null);
-	const [token, setToken] = useState<string>("");
-	const [error, setError] = useState<string>("");
+	const [token, setToken] = useState<string | undefined>(undefined);
+	const [isLoading, setIsLoading] = useState(true);
+	const [error, setError] = useState<string | undefined>(undefined);
+	const [hasInitialized, setHasInitialized] = useState(false);
+	const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-	// Listen for auth and token changes.
-	useEffect(() => {
-		// This handler is used by both onAuthStateChanged and onIdTokenChanged.
-		const handleAuthChange = async (currentUser: User | null) => {
-			setIsLoading(true);
-			if (currentUser) {
-				try {
-					const currentToken = await getIdToken(currentUser, true);
-					// Save the token and check if the user has sufficient permissions.
-					if (getRole(currentToken) < MINIMUM_ROLE) {
-						// Insufficient permissions: sign out and show an error.
-						await signOut(auth);
-						setError(
-							"You do not have the required permissions to access this app."
-						);
-						setUser(null);
-						setToken("");
-					} else {
-						setToken(currentToken);
-						setUser(currentUser);
-						setError("");
-					}
-				} catch (err) {
-					console.error("Failed to retrieve ID token:", err);
-					setError("Failed to retrieve authentication token.");
-					setUser(null);
-					setToken("");
-				}
+	// Verify session with the auth server
+	const verifySession = useCallback(async () => {
+		// Don't verify session if we're in the middle of logging out
+		if (isLoggingOut) {
+			console.log("Skipping session verification - logout in progress");
+			return;
+		}
+
+		console.log("Verifying session...");
+		try {
+			const response = await fetch("https://auth.hackpsu.org/api/sessionUser", {
+				method: "GET",
+				credentials: "include", // Include cookies for cross-origin requests
+				headers: {
+					"Content-Type": "application/json",
+				},
+			});
+
+			console.log("Session verification response:", response.status);
+
+			if (!response.ok) {
+				throw new Error(`Session verification failed: ${response.status}`);
+			}
+
+			const data = await response.json();
+			console.log("Session data received:", !!data.customToken);
+
+			if (data.customToken) {
+				// Sign in with the custom token from the auth server
+				const { signInWithCustomToken } = await import("firebase/auth");
+				const userCredential = await signInWithCustomToken(
+					auth,
+					data.customToken
+				);
+
+				console.log("Firebase sign-in successful:", userCredential.user.email);
+				setUser(userCredential.user);
+				setToken(data.customToken);
+				setError(undefined);
 			} else {
-				// User signed out.
-				setUser(null);
-				setToken("");
-				setError("");
+				throw new Error("No custom token received");
 			}
-			setIsLoading(false);
-		};
+		} catch (err) {
+			console.error("Session verification failed:", err);
+			setUser(null);
+			setToken(undefined);
+			setError(
+				err instanceof Error ? err.message : "Session verification failed"
+			);
+			throw err;
+		}
+	}, [isLoggingOut]);
 
-		const unsubscribeAuth = onAuthStateChanged(auth, handleAuthChange);
-		const unsubscribeToken = onIdTokenChanged(auth, handleAuthChange);
+	// Check for existing session on mount
+	useEffect(() => {
+		if (hasInitialized || isLoggingOut) return;
 
-		return () => {
-			unsubscribeAuth();
-			unsubscribeToken();
-		};
-	}, [auth]);
-
-	// Login using email and password.
-	const loginWithEmailAndPassword = useCallback(
-		async (email: string, password: string) => {
-			setError("");
+		const checkSession = async () => {
+			console.log("Initial session check...");
 			setIsLoading(true);
 			try {
-				const userCredential = await signInWithEmailAndPassword(
-					auth,
-					email,
-					password
+				// Add a timeout to prevent long waits
+				const timeoutPromise = new Promise((_, reject) =>
+					setTimeout(() => reject(new Error("Session check timeout")), 5000)
 				);
-				const currentToken = await getIdToken(userCredential.user);
-				if (getRole(currentToken) < MINIMUM_ROLE) {
-					await signOut(auth);
-					setError(
-						"You do not have the required permissions to access this app."
-					);
-					return;
-				}
-				// The auth state listener will update the state.
-			} catch (err: any) {
-				setError(err.message || "Login failed");
-				throw err;
+
+				await Promise.race([verifySession(), timeoutPromise]);
+				console.log("Initial session check successful");
+			} catch (err) {
+				// Session verification failed, user needs to authenticate
+				console.log("No valid session found or timeout occurred:", err);
 			} finally {
 				setIsLoading(false);
+				setHasInitialized(true);
 			}
-		},
-		[auth]
-	);
+		};
 
-	// Sign up a new user.
-	const signUpWithEmailAndPassword = useCallback(
-		async (email: string, password: string) => {
-			setError("");
-			setIsLoading(true);
-			try {
-				const userCredential = await createUserWithEmailAndPassword(
-					auth,
-					email,
-					password
-				);
-				const currentToken = await getIdToken(userCredential.user);
-				if (getRole(currentToken) < MINIMUM_ROLE) {
-					await signOut(auth);
-					setError(
-						"You do not have the required permissions to access this app."
-					);
-					return;
-				}
-				// The auth state listener will update the state.
-			} catch (err: any) {
-				setError(err.message || "Sign-up failed");
-				throw err;
-			} finally {
-				setIsLoading(false);
-			}
-		},
-		[auth]
-	);
+		checkSession();
+	}, [verifySession, hasInitialized, isLoggingOut]);
 
-	// Sign in with Google.
-	const signInWithGoogle = useCallback(async () => {
-		setError("");
-		setIsLoading(true);
-		try {
-			const provider = new GoogleAuthProvider();
-			const userCredential = await signInWithPopup(auth, provider);
-			const currentToken = await getIdToken(userCredential.user);
-			if (getRole(currentToken) < MINIMUM_ROLE) {
-				await signOut(auth);
-				setError(
-					"You do not have the required permissions to access this app."
-				);
-				return;
-			}
-			// The auth state listener will update the state.
-		} catch (err: any) {
-			setError(err.message || "Google sign-in failed");
-			throw err;
-		} finally {
-			setIsLoading(false);
-		}
-	}, [auth]);
-
-	// Sign in with GitHub.
-	const signInWithGithub = useCallback(async () => {
-		setError("");
-		setIsLoading(true);
-		try {
-			const provider = new GithubAuthProvider();
-			const userCredential = await signInWithPopup(auth, provider);
-			const currentToken = await getIdToken(userCredential.user);
-			if (getRole(currentToken) < MINIMUM_ROLE) {
-				await signOut(auth);
-				setError(
-					"You do not have the required permissions to access this app."
-				);
-				return;
-			}
-			// The auth state listener will update the state.
-		} catch (err: any) {
-			setError(err.message || "GitHub sign-in failed");
-			throw err;
-		} finally {
-			setIsLoading(false);
-		}
-	}, [auth]);
-
-	const actionCodeSettings = {
-		url: "https://checkin.hackpsu.org/auth",
-		handleCodeInApp: true,
-	};
-	// Send a password reset email.
-	const resetPassword = useCallback(
-		async (email: string) => {
-			setError("");
-			try {
-				await sendPasswordResetEmail(auth, email, actionCodeSettings);
-			} catch (err: any) {
-				setError(err.message || "Password reset failed");
-				throw err;
-			}
-		},
-		[auth]
-	);
-
-	// Log out.
+	// Logout function with proper cleanup
 	const logout = useCallback(async () => {
-		setError("");
+		console.log("Starting logout process...");
+		setIsLoggingOut(true);
+		setError(undefined);
 		setIsLoading(true);
+
 		try {
+			// First, clear the session on the auth server
+			console.log("Clearing auth server session...");
+			await fetch("https://auth.hackpsu.org/api/sessionLogout", {
+				method: "POST",
+				credentials: "include",
+				headers: {
+					"Content-Type": "application/json",
+				},
+			});
+
+			// Then sign out from Firebase
+			console.log("Signing out from Firebase...");
 			await signOut(auth);
-			// The auth state listener will update the state.
-		} catch (err: any) {
-			setError(err.message || "Logout failed");
-			throw err;
+
+			// Clear local state
+			setUser(null);
+			setToken(undefined);
+
+			console.log("Logout successful");
+
+			// Add a small delay to ensure cleanup is complete
+			await new Promise((resolve) => setTimeout(resolve, 500));
+
+			// Redirect to a logout confirmation page or home page instead of letting auth guard redirect
+			window.location.href = "https://auth.hackpsu.org/logout-complete";
+		} catch (e: any) {
+			console.error("Logout failed:", e);
+			setError(e.message);
+			throw e;
 		} finally {
 			setIsLoading(false);
+			setIsLoggingOut(false);
 		}
-	}, [auth]);
+	}, []);
 
 	const value = useMemo(
 		() => ({
+			auth,
 			isLoading,
-			isAuthenticated: !!user && !error,
-			permission: user ? getRole(token) : undefined,
+			isAuthenticated: !!user && !isLoggingOut,
 			user: user || undefined,
 			token,
 			error,
-			loginWithEmailAndPassword,
-			signUpWithEmailAndPassword,
-			signInWithGoogle,
-			signInWithGithub,
-			resetPassword,
+			verifySession,
 			logout,
 		}),
-		[
-			isLoading,
-			user,
-			permission,
-			token,
-			error,
-			loginWithEmailAndPassword,
-			signUpWithEmailAndPassword,
-			signInWithGoogle,
-			signInWithGithub,
-			resetPassword,
-			logout,
-		]
+		[isLoading, user, token, error, verifySession, logout, isLoggingOut]
 	);
 
 	return (
@@ -307,11 +182,7 @@ const FirebaseProvider: FC<Props> = ({ children, auth }) => {
 };
 
 export const useFirebase = () => {
-	const context = useContext(FirebaseContext);
-	if (!context) {
-		throw new Error("useFirebase must be used within a FirebaseProvider");
-	}
-	return context;
+	const ctx = useContext(FirebaseContext);
+	if (!ctx) throw new Error("useFirebase must be used within FirebaseProvider");
+	return ctx;
 };
-
-export default FirebaseProvider;

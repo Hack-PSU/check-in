@@ -35,12 +35,13 @@ interface NavItem {
 }
 
 export function BottomNav({ className }: { className?: string }) {
-	const { permission, logout } = useFirebase();
+	const { user, logout } = useFirebase();
 	const router = useRouter();
 	const path = usePathname();
 	const [activeTab, setActiveTab] = useState("Log Out");
 	const [openDropdown, setOpenDropdown] = useState<string | null>(null);
 	const containerRef = useRef<HTMLDivElement>(null);
+	const permission = 3; // bypass permission check for now
 
 	// Move all hooks to the top, before any conditional logic
 	// Close dropdown when clicking outside

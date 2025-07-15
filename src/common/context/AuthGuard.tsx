@@ -49,15 +49,36 @@ function SimpleLoading() {
 
 // Extract role from Firebase token or custom claims
 function getRole(token: string | undefined): number {
-	if (!token) return Role.NONE;
+	if (!token) {
+		console.log("No token provided for role extraction");
+		return Role.NONE;
+	}
 
 	try {
 		// Decode the JWT token
 		const decoded: any = jwtDecode(token);
+		console.log("Decoded token claims:", decoded);
 
 		// Check for role in custom claims
-		// First check production, then staging, then default to NONE
-		return decoded.production ?? decoded.staging ?? Role.NONE;
+		const productionRole = decoded.production;
+		const stagingRole = decoded.staging;
+		const role = productionRole ?? stagingRole ?? Role.NONE;
+
+		console.log("Role extraction:", {
+			productionRole,
+			stagingRole,
+			finalRole: role,
+			roleNames: {
+				[Role.NONE]: "NONE",
+				[Role.VOLUNTEER]: "VOLUNTEER",
+				[Role.TEAM]: "TEAM",
+				[Role.EXEC]: "EXEC",
+				[Role.TECH]: "TECH",
+				[Role.FINANCE]: "FINANCE",
+			}[role as Role],
+		});
+
+		return role;
 	} catch (error) {
 		console.error("Error decoding token:", error);
 		return Role.NONE;
@@ -114,16 +135,52 @@ export function AuthGuard({ children, config = {} }: SimpleAuthGuardProps) {
 		}
 	};
 
-	// Check user authorization
+	// Check user authorization with detailed logging
 	const checkAuthorization = (user: any, token?: string): boolean => {
-		if (!user) return false;
-
-		if (finalConfig.minimumRole !== Role.NONE && token) {
-			const userRole = getRole(token);
-			return userRole >= finalConfig.minimumRole;
+		if (!user) {
+			console.log("Authorization failed: No user");
+			return false;
 		}
 
-		return true;
+		console.log("Authorization check:", {
+			userEmail: user.email,
+			hasToken: !!token,
+			minimumRole: finalConfig.minimumRole,
+			minimumRoleName: {
+				[Role.NONE]: "NONE",
+				[Role.VOLUNTEER]: "VOLUNTEER",
+				[Role.TEAM]: "TEAM",
+				[Role.EXEC]: "EXEC",
+				[Role.TECH]: "TECH",
+				[Role.FINANCE]: "FINANCE",
+			}[finalConfig.minimumRole],
+		});
+
+		// If minimum role is NONE, any authenticated user is authorized
+		if (finalConfig.minimumRole === Role.NONE) {
+			console.log("Authorization passed: Minimum role is NONE");
+			return true;
+		}
+
+		// Check role if minimum role is specified and token is available
+		if (token) {
+			const userRole = getRole(token);
+			const authorized = userRole >= finalConfig.minimumRole;
+
+			console.log("Role-based authorization:", {
+				userRole,
+				minimumRole: finalConfig.minimumRole,
+				authorized,
+				comparison: `${userRole} >= ${finalConfig.minimumRole} = ${authorized}`,
+			});
+
+			return authorized;
+		} else {
+			console.log(
+				"Authorization failed: Token required for role check but not available"
+			);
+			return false;
+		}
 	};
 
 	// Retry session verification
@@ -157,8 +214,10 @@ export function AuthGuard({ children, config = {} }: SimpleAuthGuardProps) {
 		console.log("Auth state check:", {
 			isLoading,
 			user: !!user,
+			userEmail: user?.email,
 			token: !!token,
 			authState,
+			minimumRole: finalConfig.minimumRole,
 		});
 
 		if (isLoading && finalConfig.loadingTimeout) {
@@ -203,16 +262,42 @@ export function AuthGuard({ children, config = {} }: SimpleAuthGuardProps) {
 		return <SimpleLoading />;
 	}
 
-	// Show unauthorized (insufficient role)
+	// Show unauthorized (insufficient role) with detailed error info
 	if (authState === "unauthorized") {
+		const userRole = token ? getRole(token) : Role.NONE;
+		const roleNames = {
+			[Role.NONE]: "None",
+			[Role.VOLUNTEER]: "Volunteer",
+			[Role.TEAM]: "Team Member",
+			[Role.EXEC]: "Executive",
+			[Role.TECH]: "Tech Team",
+			[Role.FINANCE]: "Finance",
+		};
+
 		return (
 			<div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-orange-50 flex items-center justify-center p-4">
 				<div className="text-center space-y-4">
 					<h1 className="text-2xl font-bold text-gray-900">Access Denied</h1>
-					<p className="text-gray-600">
-						You don&apso;t have sufficient permissions to access this
-						application.
-					</p>
+					<div className="space-y-2">
+						<p className="text-gray-600">
+							You don't have sufficient permissions to access this application.
+						</p>
+						<div className="text-sm text-gray-500 space-y-1">
+							<p>
+								Your role:{" "}
+								<span className="font-medium">{roleNames[userRole]}</span>
+							</p>
+							<p>
+								Required role:{" "}
+								<span className="font-medium">
+									{roleNames[finalConfig.minimumRole]}
+								</span>
+							</p>
+							<p>
+								Signed in as: <span className="font-medium">{user?.email}</span>
+							</p>
+						</div>
+					</div>
 					<button
 						onClick={() => {
 							setHasRedirected(false);

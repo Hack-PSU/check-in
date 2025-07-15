@@ -48,7 +48,7 @@ export const FirebaseProvider: FC<Props> = ({ children }) => {
 		try {
 			const response = await fetch("https://auth.hackpsu.org/api/sessionUser", {
 				method: "GET",
-				credentials: "include", // Include cookies for cross-origin requests
+				credentials: "include",
 				headers: {
 					"Content-Type": "application/json",
 				},
@@ -64,7 +64,6 @@ export const FirebaseProvider: FC<Props> = ({ children }) => {
 			console.log("Session data received:", !!data.customToken);
 
 			if (data.customToken) {
-				// Sign in with the custom token from the auth server
 				const { signInWithCustomToken } = await import("firebase/auth");
 				const userCredential = await signInWithCustomToken(
 					auth,
@@ -97,7 +96,6 @@ export const FirebaseProvider: FC<Props> = ({ children }) => {
 			console.log("Initial session check...");
 			setIsLoading(true);
 			try {
-				// Add a timeout to prevent long waits
 				const timeoutPromise = new Promise((_, reject) =>
 					setTimeout(() => reject(new Error("Session check timeout")), 5000)
 				);
@@ -105,7 +103,6 @@ export const FirebaseProvider: FC<Props> = ({ children }) => {
 				await Promise.race([verifySession(), timeoutPromise]);
 				console.log("Initial session check successful");
 			} catch (err) {
-				// Session verification failed, user needs to authenticate
 				console.log("No valid session found or timeout occurred:", err);
 			} finally {
 				setIsLoading(false);
@@ -116,7 +113,7 @@ export const FirebaseProvider: FC<Props> = ({ children }) => {
 		checkSession();
 	}, [verifySession, hasInitialized, isLoggingOut]);
 
-	// Logout function with proper cleanup
+	// Enhanced logout function
 	const logout = useCallback(async () => {
 		console.log("Starting logout process...");
 		setIsLoggingOut(true);
@@ -124,7 +121,7 @@ export const FirebaseProvider: FC<Props> = ({ children }) => {
 		setIsLoading(true);
 
 		try {
-			// First, clear the session on the auth server
+			// Clear the session on the auth server first
 			console.log("Clearing auth server session...");
 			await fetch("https://auth.hackpsu.org/api/sessionLogout", {
 				method: "POST",
@@ -134,7 +131,7 @@ export const FirebaseProvider: FC<Props> = ({ children }) => {
 				},
 			});
 
-			// Then sign out from Firebase
+			// Sign out from Firebase
 			console.log("Signing out from Firebase...");
 			await signOut(auth);
 
@@ -143,12 +140,6 @@ export const FirebaseProvider: FC<Props> = ({ children }) => {
 			setToken(undefined);
 
 			console.log("Logout successful");
-
-			// Add a small delay to ensure cleanup is complete
-			await new Promise((resolve) => setTimeout(resolve, 500));
-
-			// Redirect to a logout confirmation page or home page instead of letting auth guard redirect
-			window.location.href = "https://auth.hackpsu.org/logout-complete";
 		} catch (e: any) {
 			console.error("Logout failed:", e);
 			setError(e.message);

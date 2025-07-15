@@ -86,6 +86,7 @@ export function AuthGuard({ children, config = {} }: SimpleAuthGuardProps) {
 		// Check role if minimum role is specified and token is available
 		if (finalConfig.minimumRole !== Role.NONE && token) {
 			const userRole = getRole(token);
+			console.log("User role:", userRole, "Minimum required role:", finalConfig.minimumRole);
 			return userRole >= finalConfig.minimumRole;
 		}
 

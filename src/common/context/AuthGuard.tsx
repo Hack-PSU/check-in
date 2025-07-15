@@ -60,8 +60,8 @@ function getRole(token: string | undefined): number {
 		console.log("Decoded token claims:", decoded);
 
 		// Check for role in custom claims
-		const productionRole = decoded.production;
-		const stagingRole = decoded.staging;
+		const productionRole = decoded.claims.production;
+		const stagingRole = decoded.claims.staging;
 		const role = productionRole ?? stagingRole ?? Role.NONE;
 
 		console.log("Role extraction:", {

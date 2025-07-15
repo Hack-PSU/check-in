@@ -60,8 +60,8 @@ function getRole(token: string | undefined): number {
 		console.log("Decoded token claims:", decoded);
 
 		// Check for role in custom claims
-		const productionRole = decoded.claims.production;
-		const stagingRole = decoded.claims.staging;
+		const productionRole = decoded.production;
+		const stagingRole = decoded.staging;
 		const role = productionRole ?? stagingRole ?? Role.NONE;
 
 		console.log("Role extraction:", {
@@ -95,40 +95,19 @@ export function AuthGuard({ children, config = {} }: SimpleAuthGuardProps) {
 	const [retryCount, setRetryCount] = useState(0);
 	const mountedRef = useRef(true);
 
-	// Check if we just came back from auth server or logout
-	const isReturningFromAuth = () => {
-		const urlParams = new URLSearchParams(window.location.search);
-		const referrer = document.referrer;
-		return (
-			urlParams.has("returnTo") ||
-			referrer.includes(finalConfig.authServerUrl) ||
-			referrer.includes("logout-complete")
-		);
-	};
-
-	// Handle redirect to auth server with logout flag
+	// Handle redirect to auth server
 	const redirectToAuth = () => {
-		// Prevent multiple redirects
 		if (hasRedirected) {
 			console.log("Redirect already attempted, preventing loop");
 			return;
 		}
 
-		// Don't redirect if we just came back from auth server
-		if (isReturningFromAuth()) {
-			console.log(
-				"Just returned from auth server, waiting for session verification"
-			);
-			return;
-		}
-
-		console.log("Redirecting to auth server with logout flag");
+		console.log("Redirecting to auth server");
 		setHasRedirected(true);
 
 		const currentUrl = window.location.href;
 		const authUrl = new URL(`${finalConfig.authServerUrl}/login`);
 		authUrl.searchParams.set("returnTo", currentUrl);
-		authUrl.searchParams.set("logout", "true"); // Force logout on auth server
 
 		if (finalConfig.redirectMode === "immediate") {
 			window.location.href = authUrl.toString();
@@ -280,8 +259,7 @@ export function AuthGuard({ children, config = {} }: SimpleAuthGuardProps) {
 					<h1 className="text-2xl font-bold text-gray-900">Access Denied</h1>
 					<div className="space-y-2">
 						<p className="text-gray-600">
-							You don&apos;t have sufficient permissions to access this
-							application.
+							You don&apso;t have sufficient permissions to access this application.
 						</p>
 						<div className="text-sm text-gray-500 space-y-1">
 							<p>

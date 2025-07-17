@@ -12,6 +12,7 @@ import {
 } from "react";
 import { type Auth, type User, signOut } from "firebase/auth";
 import { auth } from "@/common/config/firebase";
+import posthog from "posthog-js";
 
 type FirebaseContextType = {
 	auth: Auth;
@@ -74,6 +75,11 @@ export const FirebaseProvider: FC<Props> = ({ children }) => {
 				setUser(userCredential.user);
 				setToken(data.customToken);
 				setError(undefined);
+
+				// Identify user in PostHog
+				posthog.identify(userCredential.user.uid, {
+					email: userCredential.user.email || undefined,
+				});
 			} else {
 				throw new Error("No custom token received");
 			}
@@ -121,6 +127,9 @@ export const FirebaseProvider: FC<Props> = ({ children }) => {
 		setIsLoading(true);
 
 		try {
+			// Clear PostHog identity
+			posthog.reset();
+
 			// Clear the session on the auth server first
 			console.log("Clearing auth server session...");
 			await fetch("https://auth.hackpsu.org/api/sessionLogout", {

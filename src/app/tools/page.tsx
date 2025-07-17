@@ -1,7 +1,6 @@
 "use client";
 
 import type React from "react";
-
 import { useState } from "react";
 import {
 	Card,
@@ -36,6 +35,8 @@ import {
 } from "lucide-react";
 import { useUploadProjectsCsv } from "@/common/api/judging/hook";
 import { useAllResumes } from "@/common/api/user/hook";
+import { useAllUsers } from "@/common/api/user/hook";
+import { useAllRegistrations } from "@/common/api/registration/hook";
 
 const quickLinks = [
 	{
@@ -93,6 +94,18 @@ export default function EventOperations() {
 		refetch: fetchResumes,
 		isError: resumesError,
 	} = useAllResumes();
+
+	const {
+		data: registrations,
+		isLoading: regsLoading,
+		isError: regsError,
+	} = useAllRegistrations(false);
+
+	const {
+		data: users,
+		isLoading: usersLoading,
+		isError: usersError,
+	} = useAllUsers();
 
 	const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
 		const file = event.target.files?.[0];
@@ -165,6 +178,46 @@ export default function EventOperations() {
 		}
 	};
 
+	const handleDownloadAttendees = () => {
+		if (!registrations || !users) return;
+
+		const rows = registrations
+			.map((r) => {
+				const u = users.find((u) => u.id === r.userId);
+				return u
+					? { email: u.email, firstName: u.firstName, lastName: u.lastName }
+					: null;
+			})
+			.filter((x): x is NonNullable<typeof x> => !!x);
+
+		if (!rows.length) {
+			toast.error("No attendees found");
+			return;
+		}
+
+		const header = ["email", "firstName", "lastName"];
+		const csv = [
+			header.join(","),
+			...rows.map((r) =>
+				[r.email, r.firstName, r.lastName]
+					.map((cell) => `"${cell.replace(/"/g, '""')}"`)
+					.join(",")
+			),
+		].join("\n");
+
+		const blob = new Blob([csv], { type: "text/csv" });
+		const url = window.URL.createObjectURL(blob);
+		const link = document.createElement("a");
+		link.href = url;
+		link.download = `attendees-${new Date().toISOString().split("T")[0]}.csv`;
+		link.style.display = "none";
+
+		document.body.appendChild(link);
+		link.click();
+		document.body.removeChild(link);
+		window.URL.revokeObjectURL(url);
+	};
+
 	return (
 		<div className="container mx-auto p-6 space-y-6">
 			{/* Header */}
@@ -181,7 +234,7 @@ export default function EventOperations() {
 			</div>
 
 			<Tabs defaultValue="tools" className="space-y-6">
-				<TabsList className="grid w-full grid-cols-3">
+				<TabsList className="grid w-full grid-cols-4">
 					<TabsTrigger value="tools" className="flex items-center gap-2">
 						<Zap className="h-4 w-4" />
 						Quick Links
@@ -193,6 +246,10 @@ export default function EventOperations() {
 					<TabsTrigger value="resumes" className="flex items-center gap-2">
 						<Users className="h-4 w-4" />
 						Resume Download
+					</TabsTrigger>
+					<TabsTrigger value="attendees" className="flex items-center gap-2">
+						<Download className="h-4 w-4" />
+						Attendees CSV
 					</TabsTrigger>
 				</TabsList>
 
@@ -292,7 +349,6 @@ export default function EventOperations() {
 								</Button>
 							</div>
 
-							{/* Instructions */}
 							<Alert>
 								<AlertTriangle className="h-4 w-4" />
 								<AlertDescription>
@@ -365,6 +421,41 @@ export default function EventOperations() {
 									authorized sponsors and recruiters only.
 								</AlertDescription>
 							</Alert>
+						</CardContent>
+					</Card>
+				</TabsContent>
+
+				{/* Attendees CSV Tab */}
+				<TabsContent value="attendees" className="space-y-6">
+					<Card>
+						<CardHeader>
+							<CardTitle className="flex items-center gap-2">
+								<Download className="h-5 w-5" />
+								Download Attendees CSV
+							</CardTitle>
+							<CardDescription>
+								Export registered users’ email, first name & last name.
+							</CardDescription>
+						</CardHeader>
+						<CardContent>
+							{regsLoading || usersLoading ? (
+								<div className="flex items-center gap-2">
+									<Loader2 className="animate-spin h-4 w-4" />
+									<span>Loading…</span>
+								</div>
+							) : regsError || usersError ? (
+								<Alert>
+									<AlertTriangle className="h-4 w-4" />
+									<AlertDescription>
+										Failed to load data. Please try again.
+									</AlertDescription>
+								</Alert>
+							) : (
+								<Button onClick={handleDownloadAttendees} size="lg">
+									<Download className="h-4 w-4 mr-2" />
+									Download CSV
+								</Button>
+							)}
 						</CardContent>
 					</Card>
 				</TabsContent>

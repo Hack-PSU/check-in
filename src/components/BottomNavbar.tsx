@@ -12,6 +12,7 @@ import {
 	LucideCalendarDays,
 	ChevronDownIcon,
 	LucideProps,
+	ToggleRight
 } from "lucide-react";
 import { useFirebase } from "@/common/context";
 import { cn } from "@/lib/utils";
@@ -92,7 +93,7 @@ export function BottomNav({ className }: { className?: string }) {
 			{
 				name: "Management",
 				url: "/flag",
-				icon: LaptopIcon,
+				icon: ToggleRight,
 				children: [{ name: "Flags", url: "/flag" }].concat(
 					permission >= 3
 						? [{ name: "Chat Room (Experimental)", url: "/peerjs" }]

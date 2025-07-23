@@ -145,20 +145,18 @@ export function BottomNav({ className }: { className?: string }) {
 			),
 		},
 		{ name: "Schedule", url: "/schedule", icon: LucideCalendarDays },
-		{ name: "Log Out", url: "/auth", icon: LogOutIcon, isLogout: true },
+		{ name: "Internal Tools", url: "/tools", icon: LaptopIcon },
 		{
 			name: "Management",
-			url: "/tools",
-			icon: LaptopIcon,
-			children: [{ name: "Internal Tools", url: "/tools" }].concat(
+			url: "/flag",
+			icon: ToggleRight,
+			children: [{ name: "Flags", url: "/flag" }].concat(
 				permission >= 3
-					? [
-							{ name: "Flags", url: "/flag" },
-							{ name: "Chat Room (Experimental)", url: "/peerjs" },
-						]
+					? [{ name: "Chat Room (Experimental)", url: "/peerjs" }]
 					: []
 			),
 		},
+		{ name: "Log Out", url: "/auth", icon: LogOutIcon, isLogout: true },
 	];
 
 	const handleItemClick = async (item: NavItem, subItem?: NavSubItem) => {

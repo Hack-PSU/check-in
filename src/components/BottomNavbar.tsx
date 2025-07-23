@@ -12,7 +12,7 @@ import {
 	LucideCalendarDays,
 	ChevronDownIcon,
 	LucideProps,
-	ToggleRight
+	ToggleRight,
 } from "lucide-react";
 import { useFirebase } from "@/common/context";
 import { cn } from "@/lib/utils";

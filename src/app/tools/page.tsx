@@ -32,6 +32,7 @@ import {
 	Activity,
 	Lock,
 	MessagesSquareIcon,
+	PackageOpen,
 } from "lucide-react";
 import { useUploadProjectsCsv } from "@/common/api/judging/hook";
 import { useAllResumes } from "@/common/api/user/hook";
@@ -76,10 +77,10 @@ const quickLinks = [
 		description: "Password management",
 	},
 	{
-		name: "Organizer Chat",
-		url: "/peerjs",
-		icon: MessagesSquareIcon,
-		description: "Real-time chat for organizers",
+		name: "Inventory Management",
+		url: "https://inventory.hackpsu.org",
+		icon: PackageOpen,
+		description: "Manage event inventory and supplies",
 	},
 ];
 

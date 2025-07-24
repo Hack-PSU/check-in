@@ -259,7 +259,7 @@ export function AuthGuard({ children, config = {} }: SimpleAuthGuardProps) {
 					<h1 className="text-2xl font-bold text-gray-900">Access Denied</h1>
 					<div className="space-y-2">
 						<p className="text-gray-600">
-							You don&apso;t have sufficient permissions to access this
+							You don&apos;t have sufficient permissions to access this
 							application.
 						</p>
 						<div className="text-sm text-gray-500 space-y-1">

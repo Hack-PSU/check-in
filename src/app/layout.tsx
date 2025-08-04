@@ -57,7 +57,6 @@ export default function RootLayout({
 				<LayoutProvider>
 					{children}
 					<BottomNav />
-					<PWAInstallPrompt />
 					<Toaster richColors position="bottom-right" />
 				</LayoutProvider>
 				<Analytics />

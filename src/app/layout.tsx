@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { LayoutProvider } from "@/common/context";
@@ -9,8 +9,28 @@ import { Analytics } from "@vercel/analytics/next";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-	title: "HackPSU check-in App",
-	description: "HackPSU check in app",
+	title: "HackPSU Check-in App",
+	description: "HackPSU check-in application for event management and judging",
+	manifest: "/manifest.json",
+	appleWebApp: {
+		capable: true,
+		statusBarStyle: "default",
+		title: "HackPSU Check-in"
+	},
+	formatDetection: {
+		telephone: false
+	},
+	icons: {
+		shortcut: "/favicon.ico",
+		apple: [
+			{ url: "/logo.svg", sizes: "152x152" },
+			{ url: "/logo.svg", sizes: "192x192" }
+		]
+	}
+};
+
+export const viewport: Viewport = {
+	themeColor: "#000000"
 };
 
 export default function RootLayout({
@@ -20,6 +40,14 @@ export default function RootLayout({
 }>) {
 	return (
 		<html lang="en">
+			<head>
+				<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+				<meta name="mobile-web-app-capable" content="yes" />
+				<meta name="apple-mobile-web-app-capable" content="yes" />
+				<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+				<meta name="apple-mobile-web-app-title" content="HackPSU Check-in" />
+				<link rel="apple-touch-icon" href="/logo.svg" />
+			</head>
 			<body className={inter.className}>
 				<LayoutProvider>
 					{children}

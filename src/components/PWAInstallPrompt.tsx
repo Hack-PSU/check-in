@@ -124,8 +124,8 @@ export function PWAInstallPrompt() {
 							<p>To install:</p>
 							<ol className="list-decimal list-inside space-y-1 ml-2">
 								<li>Tap the Share button in Safari</li>
-								<li>Scroll down and tap "Add to Home Screen"</li>
-								<li>Tap "Add" to install</li>
+								<li>Scroll down and tap &quot;Add to Home Screen&quot;</li>
+								<li>Tap &quot;Add&quot; to install</li>
 							</ol>
 						</div>
 					) : (

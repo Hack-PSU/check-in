@@ -332,9 +332,9 @@ export default function JudgingAnalyticsDashboard() {
 								<SelectItem value="implementation">Implementation</SelectItem>
 								<SelectItem value="clarity">Clarity</SelectItem>
 								<SelectItem value="growth">Growth</SelectItem>
-								<SelectItem value="challenge1">Challenge 1</SelectItem>
-								<SelectItem value="challenge2">Challenge 2</SelectItem>
-								<SelectItem value="challenge3">Challenge 3</SelectItem>
+								<SelectItem value="challenge1">Machine Learning</SelectItem>
+								<SelectItem value="challenge2">Entrepreneurship</SelectItem>
+								<SelectItem value="challenge3">10th Anniversary: Timeless Tech</SelectItem>
 							</SelectContent>
 						</Select>
 
@@ -661,7 +661,7 @@ export default function JudgingAnalyticsDashboard() {
 																								score.challenge1 > 0 && (
 																									<div className="flex justify-between p-2 bg-blue-50 rounded">
 																										<span className="text-sm">
-																											Challenge 1:
+																											Machine Learning:
 																										</span>
 																										<span className="font-medium">
 																											{score.challenge1}
@@ -672,7 +672,7 @@ export default function JudgingAnalyticsDashboard() {
 																								score.challenge2 > 0 && (
 																									<div className="flex justify-between p-2 bg-blue-50 rounded">
 																										<span className="text-sm">
-																											Challenge 2:
+																											Entrepreneurship:
 																										</span>
 																										<span className="font-medium">
 																											{score.challenge2}
@@ -683,7 +683,7 @@ export default function JudgingAnalyticsDashboard() {
 																								score.challenge3 > 0 && (
 																									<div className="flex justify-between p-2 bg-blue-50 rounded">
 																										<span className="text-sm">
-																											Challenge 3:
+																											10th Anniversary: Timeless Tech:
 																										</span>
 																										<span className="font-medium">
 																											{score.challenge3}

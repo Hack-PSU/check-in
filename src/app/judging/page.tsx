@@ -51,7 +51,7 @@ const criteriaLabels: Record<CriteriaType, string> = {
 	growth: "Knowledge and Growth",
 	challenge1: "Machine Learning",
 	challenge2: "Entrepreneurship",
-	challenge3: "Timeless Tech",
+	challenge3: "10th Anniversary: Timeless Tech",
 };
 
 const criteriaDescriptions: Record<CriteriaType, string> = {
@@ -211,17 +211,38 @@ export default function JudgingPage() {
 		"challenge3",
 	];
 
+	// Define track name to challenge mapping
+	const trackToChallenge: Record<string, CriteriaType> = {
+		"Machine Learning": "challenge1",
+		"Entrepreneurship": "challenge2", 
+		"10th Anniversary: Timeless Tech": "challenge3",
+		"Timeless Tech": "challenge3", // Also accept shorter version
+	};
+
 	const getApplicableCriteria = () => {
 		if (!selectedProjectId || !allProjects) return [];
 
-		return allCriteria.filter((criteria) => {
-			if (criteria.startsWith("challenge")) {
-				const proj = allProjects.find((p) => p.id === selectedProjectId);
-				const cats = proj?.categories?.split(",").map((c) => c.trim()) || [];
-				return cats.includes(criteria);
+		const baseCriteria: CriteriaType[] = [
+			"creativity",
+			"technical", 
+			"implementation",
+			"clarity",
+			"growth"
+		];
+
+		const proj = allProjects.find((p) => p.id === selectedProjectId);
+		const categories = proj?.categories?.split(",").map((c) => c.trim()) || [];
+		
+		// Map tracks to their specific challenge criteria
+		const challengeCriteria: CriteriaType[] = [];
+		categories.forEach(category => {
+			const challengeType = trackToChallenge[category];
+			if (challengeType && !challengeCriteria.includes(challengeType)) {
+				challengeCriteria.push(challengeType);
 			}
-			return true;
 		});
+
+		return [...baseCriteria, ...challengeCriteria];
 	};
 
 	const validateScores = () => {

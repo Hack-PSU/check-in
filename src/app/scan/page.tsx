@@ -167,11 +167,11 @@ const ScanPage: React.FC = () => {
 	}, []);
 
 	if (eventsLoading)
-		return <div className="max-w-md mx-auto p-4">Loading events…</div>;
+		return <div className="max-w-md mx-auto p-4 pb-24">Loading events…</div>;
 
 	if (eventsError)
 		return (
-			<div className="max-w-md mx-auto p-4">
+			<div className="max-w-md mx-auto p-4 pb-24">
 				<Alert variant="destructive">
 					Error loading events. Please try again.
 				</Alert>
@@ -181,7 +181,7 @@ const ScanPage: React.FC = () => {
 	return (
 		<>
 			<Toaster position="bottom-right" richColors />
-			<div className="container max-w-md mx-auto py-8">
+			<div className="container max-w-md mx-auto py-8 pb-24">
 				<h1 className="text-2xl font-bold text-center mb-6">QR Code Scanner</h1>
 
 				<div className="space-y-4">

@@ -150,7 +150,7 @@ export default function ManualCheckIn() {
 	return (
 		<>
 			<Toaster position="bottom-right" richColors />
-			<div className="min-h-screen flex items-center justify-center p-4">
+			<div className="min-h-screen flex items-center justify-center p-4 pb-24">
 				<Card className="w-full max-w-lg">
 					<CardContent className="space-y-6 p-6">
 						<h2 className="text-xl font-semibold">Manual User Check-In</h2>

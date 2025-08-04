@@ -220,7 +220,7 @@ export default function EventOperations() {
 	};
 
 	return (
-		<div className="container mx-auto p-6 space-y-6">
+		<div className="container mx-auto p-6 pb-24 space-y-6">
 			{/* Header */}
 			<div className="text-center space-y-2">
 				<div className="flex items-center justify-center gap-2 mb-2">

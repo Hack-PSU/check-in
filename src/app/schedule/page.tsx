@@ -368,7 +368,7 @@ export default function EventSchedule() {
 	}
 
 	return (
-		<div className="space-y-4 sm:space-y-6">
+		<div className="container mx-auto p-6 pb-24 space-y-4 sm:space-y-6">
 			{/* Header */}
 			<Card>
 				<CardHeader className="pb-4">

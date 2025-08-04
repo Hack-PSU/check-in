@@ -519,7 +519,7 @@ const ChatRoomPage: React.FC = () => {
 
 	return (
 		<div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-			<div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-4 gap-4 h-[calc(100vh-2rem)]">
+			<div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-4 gap-4 h-[calc(100vh-2rem)] pb-24">
 				<Card className="lg:col-span-1">
 					<CardHeader className="pb-3">
 						<CardTitle className="flex items-center gap-2 text-lg">

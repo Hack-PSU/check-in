@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { LayoutProvider } from "@/common/context";
 import { BottomNav } from "@/components/BottomNavbar";
+import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 import { Toaster } from "sonner";
 import { Analytics } from "@vercel/analytics/next";
 
@@ -56,6 +57,7 @@ export default function RootLayout({
 				<LayoutProvider>
 					{children}
 					<BottomNav />
+					<PWAInstallPrompt />
 					<Toaster richColors position="bottom-right" />
 				</LayoutProvider>
 				<Analytics />

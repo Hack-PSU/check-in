@@ -2,12 +2,16 @@
 	"name": "HackPSU Check-in App",
 	"short_name": "HackPSU Check-in",
 	"description": "HackPSU check-in application for event management and judging",
+	"id": "/",
 	"theme_color": "#000000",
 	"background_color": "#ffffff",
 	"display": "standalone",
 	"orientation": "portrait",
 	"scope": "/",
 	"start_url": "/",
+	"launch_handler": {
+		"client_mode": "navigate-existing"
+	},
 	"icons": [
 		{
 			"src": "/logo.svg",
@@ -62,6 +66,20 @@
 			"sizes": "512x512",
 			"type": "image/svg+xml",
 			"purpose": "maskable any"
+		}
+	],
+	"screenshots": [
+		{
+			"src": "/logo.svg",
+			"sizes": "640x1136",
+			"type": "image/svg+xml",
+			"form_factor": "narrow"
+		},
+		{
+			"src": "/logo.svg",
+			"sizes": "1024x768",
+			"type": "image/svg+xml",
+			"form_factor": "wide"
 		}
 	]
 }

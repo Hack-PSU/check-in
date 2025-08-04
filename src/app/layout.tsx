@@ -15,22 +15,22 @@ export const metadata: Metadata = {
 	appleWebApp: {
 		capable: true,
 		statusBarStyle: "default",
-		title: "HackPSU Check-in"
+		title: "HackPSU Check-in",
 	},
 	formatDetection: {
-		telephone: false
+		telephone: false,
 	},
 	icons: {
 		shortcut: "/favicon.ico",
 		apple: [
 			{ url: "/logo.svg", sizes: "152x152" },
-			{ url: "/logo.svg", sizes: "192x192" }
-		]
-	}
+			{ url: "/logo.svg", sizes: "192x192" },
+		],
+	},
 };
 
 export const viewport: Viewport = {
-	themeColor: "#000000"
+	themeColor: "#000000",
 };
 
 export default function RootLayout({
@@ -41,7 +41,10 @@ export default function RootLayout({
 	return (
 		<html lang="en">
 			<head>
-				<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+				<meta
+					name="viewport"
+					content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"
+				/>
 				<meta name="mobile-web-app-capable" content="yes" />
 				<meta name="apple-mobile-web-app-capable" content="yes" />
 				<meta name="apple-mobile-web-app-status-bar-style" content="default" />

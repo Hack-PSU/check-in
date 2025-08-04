@@ -214,7 +214,7 @@ export default function JudgingPage() {
 	// Define track name to challenge mapping
 	const trackToChallenge: Record<string, CriteriaType> = {
 		"Machine Learning": "challenge1",
-		"Entrepreneurship": "challenge2", 
+		Entrepreneurship: "challenge2",
 		"10th Anniversary: Timeless Tech": "challenge3",
 		"Timeless Tech": "challenge3", // Also accept shorter version
 	};
@@ -224,18 +224,18 @@ export default function JudgingPage() {
 
 		const baseCriteria: CriteriaType[] = [
 			"creativity",
-			"technical", 
+			"technical",
 			"implementation",
 			"clarity",
-			"growth"
+			"growth",
 		];
 
 		const proj = allProjects.find((p) => p.id === selectedProjectId);
 		const categories = proj?.categories?.split(",").map((c) => c.trim()) || [];
-		
+
 		// Map tracks to their specific challenge criteria
 		const challengeCriteria: CriteriaType[] = [];
-		categories.forEach(category => {
+		categories.forEach((category) => {
 			const challengeType = trackToChallenge[category];
 			if (challengeType && !challengeCriteria.includes(challengeType)) {
 				challengeCriteria.push(challengeType);

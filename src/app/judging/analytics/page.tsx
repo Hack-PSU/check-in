@@ -334,7 +334,9 @@ export default function JudgingAnalyticsDashboard() {
 								<SelectItem value="growth">Growth</SelectItem>
 								<SelectItem value="challenge1">Machine Learning</SelectItem>
 								<SelectItem value="challenge2">Entrepreneurship</SelectItem>
-								<SelectItem value="challenge3">10th Anniversary: Timeless Tech</SelectItem>
+								<SelectItem value="challenge3">
+									10th Anniversary: Timeless Tech
+								</SelectItem>
 							</SelectContent>
 						</Select>
 
@@ -683,7 +685,8 @@ export default function JudgingAnalyticsDashboard() {
 																								score.challenge3 > 0 && (
 																									<div className="flex justify-between p-2 bg-blue-50 rounded">
 																										<span className="text-sm">
-																											10th Anniversary: Timeless Tech:
+																											10th Anniversary: Timeless
+																											Tech:
 																										</span>
 																										<span className="font-medium">
 																											{score.challenge3}

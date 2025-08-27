@@ -96,22 +96,19 @@ export default function AttendancePage() {
 		setIsSubmitting(true);
 
 		try {
-			const response = await fetch(
-				"https://us-east4-hackpsu-408118.cloudfunctions.net/ext-http-export-sheets-3ezm-saveRecord",
-				{
-					method: "POST",
-					headers: {
-						"Content-Type": "application/json",
-					},
-					body: JSON.stringify({
-						name: formData.name,
-						email: formData.email,
-						honeypot: formData.honeypot,
-						formType: "tech-attendance",
-						timestamp: new Date().toISOString(),
-					}),
-				}
-			);
+			const response = await fetch("/saveRecord", {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({
+					name: formData.name,
+					email: formData.email,
+					honeypot: formData.honeypot,
+					formType: "tech-attendance",
+					timestamp: new Date().toISOString(),
+				}),
+			});
 
 			if (response.ok) {
 				toast.success(
@@ -166,10 +163,8 @@ export default function AttendancePage() {
 								Thank You!
 							</h1>
 							<p className="text-muted-foreground mb-6">
-								Your attendance has been recorded successfully. You are now
-								checked in for today&apos;s activities.
+								Your attendance has been recorded successfully.
 							</p>
-							<p className="text-sm text-muted-foreground">Have a great day!</p>
 						</CardContent>
 					</Card>
 				</div>
@@ -202,10 +197,6 @@ export default function AttendancePage() {
 							</Badge>
 						)}
 					</div>
-					<p className="text-gray-600 leading-relaxed">
-						Please confirm your attendance for today&apos;s activities. Your
-						information has been pre-populated based on your account.
-					</p>
 				</div>
 
 				{/* Form */}
@@ -227,7 +218,7 @@ export default function AttendancePage() {
 										</p>
 										<p className="text-sm text-red-700 dark:text-red-300">
 											The TechAttendance feature flag is currently disabled.
-											Please contact an admin to enable attendance submission.
+											Please contact the tech director to enable attendance submission.
 										</p>
 									</div>
 								</div>
@@ -314,16 +305,6 @@ export default function AttendancePage() {
 						</form>
 					</CardContent>
 				</Card>
-
-				{/* Footer Message */}
-				<div className="mt-8 text-center p-6 bg-gradient-to-r from-primary/5 to-accent/5 rounded-lg">
-					<p className="text-lg font-medium text-gray-900">
-						Thank you for your dedication to HackPSU!
-					</p>
-					<p className="text-muted-foreground mt-2">
-						Your attendance helps us track event participation.
-					</p>
-				</div>
 			</div>
 		</div>
 	);

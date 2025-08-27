@@ -6,6 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
 import { ClipboardCheck, Send, AlertCircle, UserCheck } from "lucide-react";
 import { toast } from "sonner";
 import { useFirebase } from "@/common/context";
@@ -15,6 +22,7 @@ import { useFlagState } from "@/common/api/flag/hook";
 interface FormData {
 	name: string;
 	email: string;
+	eventType: string;
 	honeypot: string;
 }
 
@@ -23,13 +31,31 @@ export default function AttendancePage() {
 	const { data: organizers = [], isLoading: organizersLoading } =
 		useAllOrganizers();
 	const { data: techAttendanceFlag, isLoading: flagLoading } =
-		useFlagState("TechAttendance");
+		useFlagState("Attendance");
 
 	const [formData, setFormData] = useState<FormData>({
 		name: "",
 		email: "",
+		eventType: "",
 		honeypot: "",
 	});
+
+	// Event options
+	const eventOptions = [
+		{ value: "gbm", label: "GBM (General Body Meeting)" },
+		{ value: "exec-meeting", label: "Exec Meeting" },
+		{ value: "team-sponsorship", label: "Sponsorship Team Meeting" },
+		{ value: "team-external", label: "External Team Meeting" },
+		{ value: "team-design", label: "Design Team Meeting" },
+		{ value: "team-technology", label: "Technology Team Meeting" },
+		{ value: "team-communications", label: "Communications Team Meeting" },
+		{ value: "team-logistics", label: "Logistics Team Meeting" },
+		{ value: "team-finance", label: "Finance Team Meeting" },
+		{ value: "team-education", label: "Education Team Meeting" },
+		{ value: "team-marketing", label: "Marketing Team Meeting" },
+		{ value: "team-entertainment", label: "Entertainment Team Meeting" },
+		{ value: "team-co-exec", label: "Co-exec Team Meeting" },
+	];
 
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [submitted, setSubmitted] = useState(false);
@@ -58,7 +84,7 @@ export default function AttendancePage() {
 	};
 
 	const validateForm = (): boolean => {
-		const requiredFields = ["name", "email"];
+		const requiredFields = ["name", "email", "eventType"];
 		const missingFields = requiredFields.filter(
 			(field) => !formData[field as keyof FormData]
 		);
@@ -104,8 +130,9 @@ export default function AttendancePage() {
 				body: JSON.stringify({
 					name: formData.name,
 					email: formData.email,
+					eventType: formData.eventType,
 					honeypot: formData.honeypot,
-					formType: "tech-attendance",
+					formType: "general-attendance",
 					timestamp: new Date().toISOString(),
 				}),
 			});
@@ -178,7 +205,7 @@ export default function AttendancePage() {
 				{/* Header */}
 				<div className="mb-8">
 					<h1 className="text-3xl font-bold text-gray-900 mb-4">
-						Tech Attendance
+						Meeting Attendance
 					</h1>
 					<div className="flex items-center gap-4 mb-4">
 						<Badge variant="secondary" className="text-sm px-3 py-1">
@@ -197,6 +224,10 @@ export default function AttendancePage() {
 							</Badge>
 						)}
 					</div>
+					<p className="text-gray-600 leading-relaxed">
+						Please select the meeting you&apos;re attending and confirm your
+						information to record your attendance.
+					</p>
 				</div>
 
 				{/* Form */}
@@ -227,6 +258,31 @@ export default function AttendancePage() {
 						)}
 
 						<form onSubmit={handleSubmit} className="space-y-6">
+							{/* Event Selection */}
+							<div className="space-y-2">
+								<Label htmlFor="eventType">
+									Meeting/Event <span className="text-red-500">*</span>
+								</Label>
+								<Select
+									value={formData.eventType}
+									onValueChange={(value) =>
+										handleInputChange("eventType", value)
+									}
+									required
+								>
+									<SelectTrigger>
+										<SelectValue placeholder="Select the meeting you're attending" />
+									</SelectTrigger>
+									<SelectContent>
+										{eventOptions.map((option) => (
+											<SelectItem key={option.value} value={option.value}>
+												{option.label}
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
+							</div>
+
 							{/* Name */}
 							<div className="space-y-2">
 								<Label htmlFor="name">
@@ -263,11 +319,11 @@ export default function AttendancePage() {
 									<AlertCircle className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
 									<div>
 										<p className="text-sm font-medium text-blue-800 dark:text-blue-200">
-											Quick Check-In
+											Meeting Attendance
 										</p>
 										<p className="text-sm text-blue-700 dark:text-blue-300">
-											Your information has been pre-populated. Please verify
-											it&apos;s correct and submit to record your attendance.
+											Select your meeting, verify your information, and submit
+											to record your attendance.
 										</p>
 									</div>
 								</div>

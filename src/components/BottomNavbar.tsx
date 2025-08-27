@@ -98,7 +98,7 @@ export function BottomNav({ className }: { className?: string }) {
 					permission >= 3
 						? [
 								{ name: "Chat Room (Experimental)", url: "/peerjs" },
-								{ name: "Tech Attendance", url: "/attendance" },
+								{ name: "Meeting Attendance", url: "/attendance" },
 							]
 						: []
 				),
@@ -157,7 +157,7 @@ export function BottomNav({ className }: { className?: string }) {
 				permission >= 3
 					? [
 							{ name: "Chat Room (Experimental)", url: "/peerjs" },
-							{ name: "Tech Attendance", url: "/attendance" },
+							{ name: "Meeting Attendance", url: "/attendance" },
 						]
 					: []
 			),

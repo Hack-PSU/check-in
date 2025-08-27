@@ -203,7 +203,7 @@ export default function AttendancePage() {
 						)}
 					</div>
 					<p className="text-gray-600 leading-relaxed">
-						Please confirm your attendance for today&apso;s activities. Your
+						Please confirm your attendance for today&apos;s activities. Your
 						information has been pre-populated based on your account.
 					</p>
 				</div>
@@ -275,7 +275,7 @@ export default function AttendancePage() {
 										</p>
 										<p className="text-sm text-blue-700 dark:text-blue-300">
 											Your information has been pre-populated. Please verify
-											it&apso;s correct and submit to record your attendance.
+											it&apos;s correct and submit to record your attendance.
 										</p>
 									</div>
 								</div>

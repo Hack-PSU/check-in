@@ -218,7 +218,8 @@ export default function AttendancePage() {
 										</p>
 										<p className="text-sm text-red-700 dark:text-red-300">
 											The TechAttendance feature flag is currently disabled.
-											Please contact the tech director to enable attendance submission.
+											Please contact the tech director to enable attendance
+											submission.
 										</p>
 									</div>
 								</div>

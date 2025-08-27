@@ -3,6 +3,7 @@ export interface ScanEntity {
 	userId: string;
 	organizerId: string;
 	hackathonId?: string;
+	timestamp?: string;
 }
 
 export interface ScanAnalyticsEntity {

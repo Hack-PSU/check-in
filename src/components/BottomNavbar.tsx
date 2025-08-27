@@ -96,7 +96,10 @@ export function BottomNav({ className }: { className?: string }) {
 				icon: ToggleRight,
 				children: [{ name: "Flags", url: "/flag" }].concat(
 					permission >= 3
-						? [{ name: "Chat Room (Experimental)", url: "/peerjs" }]
+						? [
+								{ name: "Chat Room (Experimental)", url: "/peerjs" },
+								{ name: "Tech Attendance", url: "/attendance" },
+							]
 						: []
 				),
 			},
@@ -152,7 +155,10 @@ export function BottomNav({ className }: { className?: string }) {
 			icon: ToggleRight,
 			children: [{ name: "Flags", url: "/flag" }].concat(
 				permission >= 3
-					? [{ name: "Chat Room (Experimental)", url: "/peerjs" }]
+					? [
+							{ name: "Chat Room (Experimental)", url: "/peerjs" },
+							{ name: "Tech Attendance", url: "/attendance" },
+						]
 					: []
 			),
 		},

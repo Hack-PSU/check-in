@@ -14,6 +14,12 @@ import { type Auth, type User, signOut } from "firebase/auth";
 import { auth } from "@/common/config/firebase";
 import posthog from "posthog-js";
 
+// Helper function to get auth service URL from environment
+function getAuthServiceURL(): string {
+	// Use environment variable if set, otherwise default to production
+	return process.env.NEXT_PUBLIC_AUTH_SERVICE_URL || "https://auth.hackpsu.org";
+}
+
 type FirebaseContextType = {
 	auth: Auth;
 	isLoading: boolean;
@@ -37,7 +43,7 @@ export const FirebaseProvider: FC<Props> = ({ children }) => {
 	const [hasInitialized, setHasInitialized] = useState(false);
 	const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-	// Verify session with the auth server
+	// Verify session with the auth server (environment-aware)
 	const verifySession = useCallback(async () => {
 		// Don't verify session if we're in the middle of logging out
 		if (isLoggingOut) {
@@ -45,9 +51,11 @@ export const FirebaseProvider: FC<Props> = ({ children }) => {
 			return;
 		}
 
-		console.log("Verifying session...");
+		const authServiceURL = getAuthServiceURL();
+		console.log("Verifying session with:", authServiceURL);
+
 		try {
-			const response = await fetch("https://auth.hackpsu.org/api/sessionUser", {
+			const response = await fetch(`${authServiceURL}/api/sessionUser`, {
 				method: "GET",
 				credentials: "include",
 				headers: {
@@ -119,12 +127,14 @@ export const FirebaseProvider: FC<Props> = ({ children }) => {
 		checkSession();
 	}, [verifySession, hasInitialized, isLoggingOut]);
 
-	// Enhanced logout function
+	// Enhanced logout function (environment-aware)
 	const logout = useCallback(async () => {
 		console.log("Starting logout process...");
 		setIsLoggingOut(true);
 		setError(undefined);
 		setIsLoading(true);
+
+		const authServiceURL = getAuthServiceURL();
 
 		try {
 			// Clear PostHog identity
@@ -132,7 +142,7 @@ export const FirebaseProvider: FC<Props> = ({ children }) => {
 
 			// Clear the session on the auth server first
 			console.log("Clearing auth server session...");
-			await fetch("https://auth.hackpsu.org/api/sessionLogout", {
+			await fetch(`${authServiceURL}/api/sessionLogout`, {
 				method: "POST",
 				credentials: "include",
 				headers: {

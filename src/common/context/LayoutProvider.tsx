@@ -25,7 +25,7 @@ export default function LayoutProvider({
 					<AuthGuard
 						config={{
 							minimumRole: Role.TEAM,
-							authServerUrl: process.env.NEXT_PUBLIC_AUTH_SERVER_URL,
+							authServerUrl: process.env.NEXT_PUBLIC_AUTH_SERVICE_URL,
 						}}
 					>
 						{children}

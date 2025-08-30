@@ -60,7 +60,6 @@ The HackPSU Check-in App serves as the central management platform for HackPSU e
 
 - **ESLint** - Code linting with Next.js-specific rules and best practices
 - **Prettier** - Code formatting for consistent style across the codebase
-- **Husky** - Git hooks for pre-commit code quality checks
 - **Jest + Testing Library** - Unit testing framework with React component testing utilities
 
 ## Architecture & Design Decisions

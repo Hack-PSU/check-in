@@ -69,7 +69,7 @@ export const FirebaseProvider: FC<Props> = ({ children }) => {
 				// No session or session invalid - redirect to login
 				console.log("No valid session, redirecting to login");
 				const currentUrl = encodeURIComponent(window.location.href);
-				window.location.href = `/login?returnTo=${currentUrl}`;
+				window.location.href = `${authServiceURL}/login?returnTo=${currentUrl}`;
 				return;
 			}
 

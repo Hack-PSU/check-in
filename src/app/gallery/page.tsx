@@ -365,17 +365,26 @@ const PhotoGalleryPage: React.FC = () => {
 		// Stop current stream
 		if (streamRef.current) {
 			streamRef.current.getTracks().forEach((track) => track.stop());
+			streamRef.current = null;
 		}
 
-		// Toggle facing mode or switch to next camera
-		if (availableCameras.length === 2) {
-			setFacingMode(facingMode === "user" ? "environment" : "user");
+		// Find current camera index and switch to next
+		const currentIndex = availableCameras.findIndex(
+			(cam) => cam.deviceId === selectedCameraId
+		);
+		const nextIndex = (currentIndex + 1) % availableCameras.length;
+		const nextCamera = availableCameras[nextIndex];
+
+		setSelectedCameraId(nextCamera.deviceId);
+
+		// Update facing mode based on camera label (heuristic)
+		if (
+			nextCamera.label.toLowerCase().includes("front") ||
+			nextCamera.label.toLowerCase().includes("user")
+		) {
+			setFacingMode("user");
 		} else {
-			const currentIndex = availableCameras.findIndex(
-				(cam) => cam.deviceId === selectedCameraId
-			);
-			const nextIndex = (currentIndex + 1) % availableCameras.length;
-			setSelectedCameraId(availableCameras[nextIndex].deviceId);
+			setFacingMode("environment");
 		}
 
 		// Restart camera with new settings
@@ -412,31 +421,87 @@ const PhotoGalleryPage: React.FC = () => {
 		}
 	};
 
-	const performCapture = () => {
+	const performCapture = async () => {
 		if (videoRef.current && canvasRef.current) {
-			// Flash effect
+			// Use actual device flash/torch if available
 			if (flashMode === "on" || (flashMode === "auto" && shouldUseFlash())) {
-				const flashDiv = document.createElement("div");
-				flashDiv.className =
-					"fixed inset-0 bg-white z-[60] pointer-events-none";
-				document.body.appendChild(flashDiv);
-				setTimeout(() => flashDiv.remove(), 100);
+				await enableFlash();
 			}
 
-			const context = canvasRef.current.getContext("2d");
-			if (context) {
-				canvasRef.current.width = videoRef.current.videoWidth;
-				canvasRef.current.height = videoRef.current.videoHeight;
-				context.drawImage(videoRef.current, 0, 0);
-				const dataUrl = canvasRef.current.toDataURL("image/jpeg", 0.9);
-				setCameraPreview(dataUrl);
-			}
+			// Visual flash effect as fallback
+			const flashDiv = document.createElement("div");
+			flashDiv.className = "fixed inset-0 bg-white z-[60] pointer-events-none";
+			flashDiv.style.opacity = "0.8";
+			document.body.appendChild(flashDiv);
+
+			// Capture after a brief moment to allow flash to activate
+			setTimeout(async () => {
+				const canvas = canvasRef.current;
+				const video = videoRef.current;
+
+				if (canvas && video) {
+					const context = canvas.getContext("2d");
+					if (context) {
+						canvas.width = video.videoWidth;
+						canvas.height = video.videoHeight;
+						context.drawImage(video, 0, 0);
+						const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
+						setCameraPreview(dataUrl);
+					}
+				}
+
+				// Disable flash and remove visual effect
+				if (flashMode === "on" || (flashMode === "auto" && shouldUseFlash())) {
+					await disableFlash();
+				}
+				flashDiv.remove();
+			}, 100);
 		}
 	};
 
 	const shouldUseFlash = () => {
 		// Simple auto-flash logic - could be enhanced with ambient light detection
 		return false; // For now, only use flash when explicitly on
+	};
+
+	const enableFlash = async () => {
+		try {
+			if (streamRef.current) {
+				const [track] = streamRef.current.getVideoTracks();
+				const capabilities = track.getCapabilities
+					? track.getCapabilities()
+					: {};
+
+				// Check if torch/flash is supported
+				if ("torch" in capabilities && capabilities.torch) {
+					await track.applyConstraints({
+						advanced: [{ torch: true } as any],
+					});
+				}
+			}
+		} catch (error) {
+			console.warn("Flash not supported or failed to enable:", error);
+		}
+	};
+
+	const disableFlash = async () => {
+		try {
+			if (streamRef.current) {
+				const [track] = streamRef.current.getVideoTracks();
+				const capabilities = track.getCapabilities
+					? track.getCapabilities()
+					: {};
+
+				// Check if torch/flash is supported
+				if ("torch" in capabilities && capabilities.torch) {
+					await track.applyConstraints({
+						advanced: [{ torch: false } as any],
+					});
+				}
+			}
+		} catch (error) {
+			console.warn("Failed to disable flash:", error);
+		}
 	};
 
 	const uploadCapturedPhoto = async () => {
@@ -869,7 +934,10 @@ const PhotoGalleryPage: React.FC = () => {
 								<Button
 									size="lg"
 									variant="ghost"
-									onClick={() => setCameraPreview(null)}
+									onClick={() => {
+										setCameraPreview(null);
+										startCamera();
+									}}
 									className="text-white hover:bg-white/10"
 								>
 									<X className="h-5 w-5 mr-2" />

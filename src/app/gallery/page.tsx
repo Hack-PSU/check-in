@@ -6,6 +6,13 @@ import { useGetAllPhotos, useUploadPhoto } from "@/common/api/photos";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
 import { Toaster, toast } from "sonner";
 import {
 	ChevronLeft,
@@ -18,7 +25,6 @@ import {
 	Loader2,
 	ImageIcon,
 	CheckCircle,
-	RotateCw,
 	Zap,
 	ZapOff,
 	Sun,
@@ -359,8 +365,8 @@ const PhotoGalleryPage: React.FC = () => {
 		}
 	};
 
-	const switchCamera = async () => {
-		if (availableCameras.length <= 1) return;
+	const handleCameraSelect = async (cameraId: string) => {
+		if (cameraId === selectedCameraId) return;
 
 		// Stop current stream
 		if (streamRef.current) {
@@ -368,27 +374,49 @@ const PhotoGalleryPage: React.FC = () => {
 			streamRef.current = null;
 		}
 
-		// Find current camera index and switch to next
-		const currentIndex = availableCameras.findIndex(
-			(cam) => cam.deviceId === selectedCameraId
+		// Find selected camera
+		const selectedCamera = availableCameras.find(
+			(cam) => cam.deviceId === cameraId
 		);
-		const nextIndex = (currentIndex + 1) % availableCameras.length;
-		const nextCamera = availableCameras[nextIndex];
 
-		setSelectedCameraId(nextCamera.deviceId);
+		if (selectedCamera) {
+			setSelectedCameraId(cameraId);
 
-		// Update facing mode based on camera label (heuristic)
-		if (
-			nextCamera.label.toLowerCase().includes("front") ||
-			nextCamera.label.toLowerCase().includes("user")
-		) {
-			setFacingMode("user");
-		} else {
-			setFacingMode("environment");
+			// Update facing mode based on camera label (heuristic)
+			if (
+				selectedCamera.label.toLowerCase().includes("front") ||
+				selectedCamera.label.toLowerCase().includes("user")
+			) {
+				setFacingMode("user");
+			} else {
+				setFacingMode("environment");
+			}
+
+			// Restart camera with new settings
+			await startCamera();
 		}
+	};
 
-		// Restart camera with new settings
-		await startCamera();
+	const getCameraDisplayName = (camera: MediaDeviceInfo) => {
+		if (camera.label) {
+			// Clean up the camera label for display
+			let name = camera.label;
+			// Remove common prefixes and technical details
+			name = name.replace(/^.*camera|camera.*$/i, "").trim();
+			if (
+				name.toLowerCase().includes("front") ||
+				name.toLowerCase().includes("user")
+			) {
+				return "Front Camera";
+			} else if (
+				name.toLowerCase().includes("back") ||
+				name.toLowerCase().includes("environment")
+			) {
+				return "Back Camera";
+			}
+			return name || `Camera ${availableCameras.indexOf(camera) + 1}`;
+		}
+		return `Camera ${availableCameras.indexOf(camera) + 1}`;
 	};
 
 	const stopCamera = () => {
@@ -817,14 +845,28 @@ const PhotoGalleryPage: React.FC = () => {
 									<Grid className="h-5 w-5" />
 								</button>
 
-								{/* Camera switch */}
+								{/* Camera selector */}
 								{availableCameras.length > 1 && (
-									<button
-										onClick={switchCamera}
-										className="p-2 rounded-full bg-black/30 backdrop-blur text-white hover:bg-black/50 transition"
-									>
-										<RotateCw className="h-5 w-5" />
-									</button>
+									<div className="relative">
+										<Select
+											value={selectedCameraId || ""}
+											onValueChange={handleCameraSelect}
+										>
+											<SelectTrigger className="w-32 bg-black/30 backdrop-blur border-white/20 text-white text-xs">
+												<SelectValue placeholder="Camera" />
+											</SelectTrigger>
+											<SelectContent>
+												{availableCameras.map((camera) => (
+													<SelectItem
+														key={camera.deviceId}
+														value={camera.deviceId}
+													>
+														{getCameraDisplayName(camera)}
+													</SelectItem>
+												))}
+											</SelectContent>
+										</Select>
+									</div>
 								)}
 							</div>
 						</div>

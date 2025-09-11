@@ -852,14 +852,19 @@ const PhotoGalleryPage: React.FC = () => {
 											value={selectedCameraId || ""}
 											onValueChange={handleCameraSelect}
 										>
-											<SelectTrigger className="w-32 bg-black/30 backdrop-blur border-white/20 text-white text-xs">
+											<SelectTrigger className="w-36 h-10 bg-black/30 backdrop-blur border-white/20 text-white text-xs hover:bg-black/50 transition-colors touch-manipulation">
 												<SelectValue placeholder="Camera" />
 											</SelectTrigger>
-											<SelectContent>
+											<SelectContent
+												className="bg-black/90 backdrop-blur border-white/20 z-[70]"
+												position="popper"
+												sideOffset={5}
+											>
 												{availableCameras.map((camera) => (
 													<SelectItem
 														key={camera.deviceId}
 														value={camera.deviceId}
+														className="text-white hover:bg-white/10 focus:bg-white/10 cursor-pointer touch-manipulation"
 													>
 														{getCameraDisplayName(camera)}
 													</SelectItem>

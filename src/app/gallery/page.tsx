@@ -6,13 +6,6 @@ import { useGetAllPhotos, useUploadPhoto } from "@/common/api/photos";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@/components/ui/select";
 import { Toaster, toast } from "sonner";
 import {
 	ChevronLeft,
@@ -847,31 +840,22 @@ const PhotoGalleryPage: React.FC = () => {
 
 								{/* Camera selector */}
 								{availableCameras.length > 1 && (
-									<div className="relative">
-										<Select
-											value={selectedCameraId || ""}
-											onValueChange={handleCameraSelect}
-										>
-											<SelectTrigger className="w-36 h-10 bg-black/30 backdrop-blur border-white/20 text-white text-xs hover:bg-black/50 transition-colors touch-manipulation">
-												<SelectValue placeholder="Camera" />
-											</SelectTrigger>
-											<SelectContent
-												className="bg-black/90 backdrop-blur border-white/20 z-[70]"
-												position="popper"
-												sideOffset={5}
-											>
-												{availableCameras.map((camera) => (
-													<SelectItem
-														key={camera.deviceId}
-														value={camera.deviceId}
-														className="text-white hover:bg-white/10 focus:bg-white/10 cursor-pointer touch-manipulation"
-													>
-														{getCameraDisplayName(camera)}
-													</SelectItem>
-												))}
-											</SelectContent>
-										</Select>
-									</div>
+									<button
+										onClick={() => {
+											const currentIndex = availableCameras.findIndex(
+												(cam) => cam.deviceId === selectedCameraId
+											);
+											const nextIndex = (currentIndex + 1) % availableCameras.length;
+											const nextCamera = availableCameras[nextIndex];
+											handleCameraSelect(nextCamera.deviceId);
+										}}
+										className="px-3 py-2 rounded-full bg-black/30 backdrop-blur text-white hover:bg-black/50 transition text-xs"
+									>
+										{selectedCameraId 
+											? getCameraDisplayName(availableCameras.find(cam => cam.deviceId === selectedCameraId)!)
+											: "Camera"
+										}
+									</button>
 								)}
 							</div>
 						</div>

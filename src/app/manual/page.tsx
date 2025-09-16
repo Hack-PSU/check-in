@@ -72,6 +72,25 @@ export default function ManualCheckIn() {
 		[events, selectedEventId]
 	);
 
+	const formatTimeRange = (start: number, end: number) => {
+		const startDt = new Date(start);
+		const endDt = new Date(end);
+		const timeOpts: Intl.DateTimeFormatOptions = { hour: "numeric", minute: "2-digit" };
+		return `${startDt.toLocaleTimeString(undefined, timeOpts)}–${endDt.toLocaleTimeString(undefined, timeOpts)}`;
+	};
+
+	const formatDateTimeRange = (start: number, end: number) => {
+		const startDt = new Date(start);
+		const endDt = new Date(end);
+		const sameDay = startDt.toDateString() === endDt.toDateString();
+		const dateOpts: Intl.DateTimeFormatOptions = { dateStyle: "medium" };
+		const timeOpts: Intl.DateTimeFormatOptions = { hour: "numeric", minute: "2-digit" };
+		if (sameDay) {
+			return `${startDt.toLocaleDateString(undefined, dateOpts)} ${startDt.toLocaleTimeString(undefined, timeOpts)}–${endDt.toLocaleTimeString(undefined, timeOpts)}`;
+		}
+		return `${startDt.toLocaleDateString(undefined, dateOpts)} ${startDt.toLocaleTimeString(undefined, timeOpts)} – ${endDt.toLocaleDateString(undefined, dateOpts)} ${endDt.toLocaleTimeString(undefined, timeOpts)}`;
+	};
+
 	// Improved search filtering with better text matching
 	const filteredUsers = useMemo(() => {
 		if (!userQuery.trim()) return users;
@@ -258,7 +277,7 @@ export default function ManualCheckIn() {
 												) : (
 													events.map((e) => (
 														<SelectItem key={e.id} value={e.id}>
-															{e.name}
+															{e.name} ({formatTimeRange(e.startTime, e.endTime)})
 														</SelectItem>
 													))
 												)}
@@ -267,6 +286,8 @@ export default function ManualCheckIn() {
 									)}
 								/>
 							</div>
+
+							{selectedEvent && null}
 
 							{/* Check-In Button */}
 							<Button

@@ -75,7 +75,10 @@ export default function ManualCheckIn() {
 	const formatTimeRange = (start: number, end: number) => {
 		const startDt = new Date(start);
 		const endDt = new Date(end);
-		const timeOpts: Intl.DateTimeFormatOptions = { hour: "numeric", minute: "2-digit" };
+		const timeOpts: Intl.DateTimeFormatOptions = {
+			hour: "numeric",
+			minute: "2-digit",
+		};
 		return `${startDt.toLocaleTimeString(undefined, timeOpts)}–${endDt.toLocaleTimeString(undefined, timeOpts)}`;
 	};
 
@@ -84,7 +87,10 @@ export default function ManualCheckIn() {
 		const endDt = new Date(end);
 		const sameDay = startDt.toDateString() === endDt.toDateString();
 		const dateOpts: Intl.DateTimeFormatOptions = { dateStyle: "medium" };
-		const timeOpts: Intl.DateTimeFormatOptions = { hour: "numeric", minute: "2-digit" };
+		const timeOpts: Intl.DateTimeFormatOptions = {
+			hour: "numeric",
+			minute: "2-digit",
+		};
 		if (sameDay) {
 			return `${startDt.toLocaleDateString(undefined, dateOpts)} ${startDt.toLocaleTimeString(undefined, timeOpts)}–${endDt.toLocaleTimeString(undefined, timeOpts)}`;
 		}
@@ -277,7 +283,8 @@ export default function ManualCheckIn() {
 												) : (
 													events.map((e) => (
 														<SelectItem key={e.id} value={e.id}>
-															{e.name} ({formatTimeRange(e.startTime, e.endTime)})
+															{e.name} (
+															{formatTimeRange(e.startTime, e.endTime)})
 														</SelectItem>
 													))
 												)}

@@ -845,16 +845,20 @@ const PhotoGalleryPage: React.FC = () => {
 											const currentIndex = availableCameras.findIndex(
 												(cam) => cam.deviceId === selectedCameraId
 											);
-											const nextIndex = (currentIndex + 1) % availableCameras.length;
+											const nextIndex =
+												(currentIndex + 1) % availableCameras.length;
 											const nextCamera = availableCameras[nextIndex];
 											handleCameraSelect(nextCamera.deviceId);
 										}}
 										className="px-3 py-2 rounded-full bg-black/30 backdrop-blur text-white hover:bg-black/50 transition text-xs"
 									>
-										{selectedCameraId 
-											? getCameraDisplayName(availableCameras.find(cam => cam.deviceId === selectedCameraId)!)
-											: "Camera"
-										}
+										{selectedCameraId
+											? getCameraDisplayName(
+													availableCameras.find(
+														(cam) => cam.deviceId === selectedCameraId
+													)!
+												)
+											: "Camera"}
 									</button>
 								)}
 							</div>

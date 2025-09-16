@@ -24,6 +24,7 @@ interface FormData {
 	email: string;
 	eventType: string;
 	honeypot: string;
+	birthday: string;
 }
 
 export default function AttendancePage() {
@@ -38,6 +39,7 @@ export default function AttendancePage() {
 		email: "",
 		eventType: "",
 		honeypot: "",
+		birthday: "",
 	});
 
 	// Event options
@@ -84,7 +86,7 @@ export default function AttendancePage() {
 	};
 
 	const validateForm = (): boolean => {
-		const requiredFields = ["name", "email", "eventType"];
+		const requiredFields = ["name", "email", "eventType", "birthday"];
 		const missingFields = requiredFields.filter(
 			(field) => !formData[field as keyof FormData]
 		);
@@ -132,6 +134,7 @@ export default function AttendancePage() {
 					email: formData.email,
 					eventType: formData.eventType,
 					honeypot: formData.honeypot,
+					birthday: formData.birthday,
 					formType: "general-attendance",
 					timestamp: new Date().toISOString(),
 				}),
@@ -339,6 +342,22 @@ export default function AttendancePage() {
 								value={formData.honeypot}
 								onChange={(e) => handleInputChange("honeypot", e.target.value)}
 							/>
+
+							{/* Birthday */}
+							<div className="space-y-2">
+								<Label htmlFor="birthday">
+									When is your birthday? <span className="text-red-500">*</span>
+								</Label>
+								<Input
+									id="birthday"
+									type="date"
+									value={formData.birthday}
+									onChange={(e) =>
+										handleInputChange("birthday", e.target.value)
+									}
+									required
+								/>
+							</div>
 
 							{/* Submit Button */}
 							<Button

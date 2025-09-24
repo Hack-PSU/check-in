@@ -282,7 +282,12 @@ export function BottomNav({ className }: { className?: string }) {
 										animate={{ opacity: 1, y: 0, scale: 1 }}
 										exit={{ opacity: 0, y: 10, scale: 0.95 }}
 										transition={{ duration: 0.15 }}
-										className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 min-w-[180px] z-10"
+										className={cn(
+											"absolute bottom-full mb-3 min-w-[180px] z-10",
+											item.name === "Management"
+											? "right-0"
+											: "left-1/2 -translate-x-1/2"
+										)}
 									>
 										<div className="bg-background/95 border border-border backdrop-blur-md rounded-xl shadow-lg py-2">
 											{item.children?.map((subItem) => {

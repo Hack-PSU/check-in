@@ -285,8 +285,8 @@ export function BottomNav({ className }: { className?: string }) {
 										className={cn(
 											"absolute bottom-full mb-3 min-w-[180px] z-10",
 											item.name === "Management"
-											? "right-0" // dropdown aligns leftward from arrow
-											: "left-1/2 -translate-x-1/2" // all others stay centered
+											? "right-0"
+											: "left-1/2 -translate-x-1/2"
 										)}
 									>
 										<div className="bg-background/95 border border-border backdrop-blur-md rounded-xl shadow-lg py-2">

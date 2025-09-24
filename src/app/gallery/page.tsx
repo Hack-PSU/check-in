@@ -24,6 +24,7 @@ import {
 	Image as ImageIconAlt,
 	Maximize,
 	Timer,
+	Download,
 } from "lucide-react";
 
 const PHOTOS_PER_PAGE = 10;
@@ -144,6 +145,28 @@ const PhotoGalleryPage: React.FC = () => {
 			selectedPhotoIndex < allPhotos.length - 1
 		) {
 			setSelectedPhotoIndex(selectedPhotoIndex + 1);
+		}
+	};
+
+	// Download helper: try to fetch as blob then trigger download; fallback opens in new tab
+	const downloadMedia = async (url: string, filename?: string) => {
+		try {
+			const res = await fetch(url);
+			if (!res.ok) throw new Error("Network response was not ok");
+			const blob = await res.blob();
+			const objectUrl = URL.createObjectURL(blob);
+
+			const link = document.createElement("a");
+			link.href = objectUrl;
+			link.download = filename || url.split("/").pop() || "download";
+			document.body.appendChild(link);
+			link.click();
+			link.remove();
+			URL.revokeObjectURL(objectUrl);
+		} catch (err) {
+			console.warn("download failed, falling back to opening in new tab:", err);
+			window.open(url, "_blank", "noopener,noreferrer");
+			toast.error("Could not download directly. Opened in a new tab.");
 		}
 	};
 
@@ -1029,6 +1052,21 @@ const PhotoGalleryPage: React.FC = () => {
 							/>
 						)}
 
+						{/* Download button inside full-screen viewer */}
+						<button
+							onClick={(e) => {
+								e.stopPropagation();
+								downloadMedia(
+									allPhotos[selectedPhotoIndex].url,
+									allPhotos[selectedPhotoIndex].name
+								);
+							}}
+							aria-label={`Download ${allPhotos[selectedPhotoIndex].name}`}
+							className="absolute bottom-6 right-6 bg-black/40 text-white p-3 rounded-lg hover:bg-black/60 backdrop-blur z-50"
+						>
+							<Download className="h-5 w-5" />
+						</button>
+
 						<Button
 							variant="ghost"
 							size="icon"
@@ -1069,19 +1107,43 @@ const PhotoGalleryPage: React.FC = () => {
 						<CardContent className="p-4">
 							<div className="aspect-video bg-gray-100 rounded-lg flex items-center justify-center">
 								{isVideo(currentPhotos[0].url) ? (
-									<video
-										src={currentPhotos[0].url}
-										controls
-										className="w-full h-full object-contain rounded-lg"
-										preload="metadata"
-									/>
+									<div className="w-full h-full relative">
+										<video
+											src={currentPhotos[0].url}
+											controls
+											className="w-full h-full object-contain rounded-lg"
+											preload="metadata"
+										/>
+										<button
+											onClick={(e) => {
+												e.stopPropagation();
+												downloadMedia(currentPhotos[0].url, currentPhotos[0].name);
+											}}
+											aria-label={`Download ${currentPhotos[0].name}`}
+											className="absolute bottom-2 right-2 bg-black/40 text-white p-2 rounded-lg hover:bg-black/60 backdrop-blur z-10"
+										>
+											<Download className="h-4 w-4" />
+										</button>
+									</div>
 								) : (
-									<LazyImage
-										src={currentPhotos[0].url}
-										alt={currentPhotos[0].name}
-										className="w-full h-full object-contain rounded-lg cursor-pointer"
-										onClick={() => setSelectedPhotoIndex(startIndex)}
-									/>
+									<div className="w-full h-full relative">
+										<LazyImage
+											src={currentPhotos[0].url}
+											alt={currentPhotos[0].name}
+											className="w-full h-full object-contain rounded-lg cursor-pointer"
+											onClick={() => setSelectedPhotoIndex(startIndex)}
+										/>
+										<button
+											onClick={(e) => {
+												e.stopPropagation();
+												downloadMedia(currentPhotos[0].url, currentPhotos[0].name);
+											}}
+											aria-label={`Download ${currentPhotos[0].name}`}
+											className="absolute bottom-2 right-2 bg-black/40 text-white p-2 rounded-lg hover:bg-black/60 backdrop-blur z-10"
+										>
+											<Download className="h-4 w-4" />
+										</button>
+									</div>
 								)}
 							</div>
 							<div className="mt-4 text-center">
@@ -1116,13 +1178,35 @@ const PhotoGalleryPage: React.FC = () => {
 												<Play className="h-6 w-6 text-white" />
 											</div>
 										</div>
+										<button
+											onClick={(e) => {
+												e.stopPropagation();
+												downloadMedia(photo.url, photo.name);
+											}}
+											aria-label={`Download ${photo.name}`}
+											className="absolute bottom-2 right-2 bg-black/40 text-white p-2 rounded-lg hover:bg-black/60 backdrop-blur z-10"
+										>
+											<Download className="h-4 w-4" />
+										</button>
 									</div>
 								) : (
-									<LazyImage
-										src={photo.url}
-										alt={photo.name}
-										className="w-full h-full"
-									/>
+									<div className="w-full h-full relative">
+										<LazyImage
+											src={photo.url}
+											alt={photo.name}
+											className="w-full h-full"
+										/>
+										<button
+											onClick={(e) => {
+												e.stopPropagation();
+												downloadMedia(photo.url, photo.name);
+											}}
+											aria-label={`Download ${photo.name}`}
+											className="absolute bottom-2 right-2 bg-black/40 text-white p-2 rounded-lg hover:bg-black/60 backdrop-blur z-10"
+										>
+											<Download className="h-4 w-4" />
+										</button>
+									</div>
 								)}
 							</div>
 						))}

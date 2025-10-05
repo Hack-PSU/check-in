@@ -1063,6 +1063,57 @@ const PhotoGalleryPage: React.FC = () => {
 
 			{/* Main Content */}
 			<div className="container mx-auto px-4 py-6">
+
+				{/* Pagination */}
+				{totalPages > 1 && (
+					<div className="mb-6 flex justify-center items-center gap-2">
+						<Button
+							size="sm"
+							variant="outline"
+							onClick={() => setCurrentPage(currentPage - 1)}
+							disabled={currentPage === 1}
+						>
+							<ChevronLeft className="h-4 w-4" />
+						</Button>
+
+						<div className="flex gap-1">
+							{Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+								let pageNum;
+								if (totalPages <= 5) {
+									pageNum = i + 1;
+								} else if (currentPage <= 3) {
+									pageNum = i + 1;
+								} else if (currentPage >= totalPages - 2) {
+									pageNum = totalPages - 4 + i;
+								} else {
+									pageNum = currentPage - 2 + i;
+								}
+
+								return (
+									<Button
+										key={pageNum}
+										size="sm"
+										variant={currentPage === pageNum ? "default" : "outline"}
+										onClick={() => setCurrentPage(pageNum)}
+										className="w-8"
+									>
+										{pageNum}
+									</Button>
+								);
+							})}
+						</div>
+
+						<Button
+							size="sm"
+							variant="outline"
+							onClick={() => setCurrentPage(currentPage + 1)}
+							disabled={currentPage === totalPages}
+						>
+							<ChevronRight className="h-4 w-4" />
+						</Button>
+					</div>
+				)}
+
 				{/* Slideshow Mode */}
 				{viewMode === "slideshow" && currentPhotos.length > 0 && (
 					<Card className="mb-6">
@@ -1149,55 +1200,7 @@ const PhotoGalleryPage: React.FC = () => {
 					</Card>
 				)}
 
-				{/* Pagination */}
-				{totalPages > 1 && (
-					<div className="mt-6 flex justify-center items-center gap-2">
-						<Button
-							size="sm"
-							variant="outline"
-							onClick={() => setCurrentPage(currentPage - 1)}
-							disabled={currentPage === 1}
-						>
-							<ChevronLeft className="h-4 w-4" />
-						</Button>
-
-						<div className="flex gap-1">
-							{Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-								let pageNum;
-								if (totalPages <= 5) {
-									pageNum = i + 1;
-								} else if (currentPage <= 3) {
-									pageNum = i + 1;
-								} else if (currentPage >= totalPages - 2) {
-									pageNum = totalPages - 4 + i;
-								} else {
-									pageNum = currentPage - 2 + i;
-								}
-
-								return (
-									<Button
-										key={pageNum}
-										size="sm"
-										variant={currentPage === pageNum ? "default" : "outline"}
-										onClick={() => setCurrentPage(pageNum)}
-										className="w-8"
-									>
-										{pageNum}
-									</Button>
-								);
-							})}
-						</div>
-
-						<Button
-							size="sm"
-							variant="outline"
-							onClick={() => setCurrentPage(currentPage + 1)}
-							disabled={currentPage === totalPages}
-						>
-							<ChevronRight className="h-4 w-4" />
-						</Button>
-					</div>
-				)}
+				
 			</div>
 		</div>
 	);

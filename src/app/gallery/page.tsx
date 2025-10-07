@@ -999,66 +999,68 @@ const PhotoGalleryPage: React.FC = () => {
 
 			{/* Photo Viewer Modal */}
 			{selectedPhotoIndex !== null && allPhotos && (
-				<div className="fixed inset-0 bg-black z-50 flex flex-col">
-					<div className="flex justify-between items-center p-4 text-white">
-						<span className="text-sm">
-							{selectedPhotoIndex + 1} / {allPhotos.length}
-						</span>
-						<Button
-							size="sm"
-							variant="ghost"
-							onClick={() => setSelectedPhotoIndex(null)}
-							className="text-white hover:bg-white/20"
-						>
-							<X className="h-5 w-5" />
-						</Button>
-					</div>
-
-					<div className="flex-1 relative flex items-center justify-center p-4">
-						{isVideo(allPhotos[selectedPhotoIndex].url) ? (
-							<video
-								src={allPhotos[selectedPhotoIndex].url}
-								controls
-								className="max-w-full max-h-full"
-							/>
-						) : (
-							<img
-								src={allPhotos[selectedPhotoIndex].url}
-								alt={allPhotos[selectedPhotoIndex].name}
-								className="max-w-full max-h-full object-contain"
-							/>
-						)}
-
-						<Button
-							variant="ghost"
-							size="icon"
-							className="absolute left-4 text-white hover:bg-white/20"
-							onClick={() => navigatePhoto("prev")}
-							disabled={selectedPhotoIndex === 0}
-						>
-							<ChevronLeft className="h-6 w-6" />
-						</Button>
-
-						<Button
-							variant="ghost"
-							size="icon"
-							className="absolute right-4 text-white hover:bg-white/20"
-							onClick={() => navigatePhoto("next")}
-							disabled={selectedPhotoIndex === allPhotos.length - 1}
-						>
-							<ChevronRight className="h-6 w-6" />
-						</Button>
-					</div>
-
-					<div className="p-4 text-white text-center">
-						<p className="text-sm">{allPhotos[selectedPhotoIndex].name}</p>
-						<p className="text-xs opacity-75">
-							{new Date(
-								allPhotos[selectedPhotoIndex].createdAt
-							).toLocaleString()}
-						</p>
-					</div>
+			<div className="fixed inset-0 bg-black z-50 flex flex-col">
+				{/* Top bar */}
+				<div className="flex justify-between items-center p-4 text-white">
+				<span className="text-sm">
+					{selectedPhotoIndex + 1} / {allPhotos.length}
+				</span>
+				<Button
+					size="sm"
+					variant="ghost"
+					onClick={() => setSelectedPhotoIndex(null)}
+					className="text-white hover:bg-white/20"
+				>
+					<X className="h-5 w-5" />
+				</Button>
 				</div>
+
+				{/* Centered image/video viewer */}
+				<div className="flex-1 flex items-center justify-center overflow-hidden p-4 relative">
+				{isVideo(allPhotos[selectedPhotoIndex].url) ? (
+					<video
+					src={allPhotos[selectedPhotoIndex].url}
+					controls
+					className="max-w-[95vw] max-h-[85vh] object-contain rounded-lg shadow-lg"
+					/>
+				) : (
+					<img
+					src={allPhotos[selectedPhotoIndex].url}
+					alt={allPhotos[selectedPhotoIndex].name}
+					className="max-w-[95vw] max-h-[85vh] object-contain rounded-lg shadow-lg"
+					/>
+				)}
+
+				{/* Navigation buttons */}
+				<Button
+					variant="ghost"
+					size="icon"
+					className="absolute left-4 text-white hover:bg-white/20"
+					onClick={() => navigatePhoto("prev")}
+					disabled={selectedPhotoIndex === 0}
+				>
+					<ChevronLeft className="h-6 w-6" />
+				</Button>
+
+				<Button
+					variant="ghost"
+					size="icon"
+					className="absolute right-4 text-white hover:bg-white/20"
+					onClick={() => navigatePhoto("next")}
+					disabled={selectedPhotoIndex === allPhotos.length - 1}
+				>
+					<ChevronRight className="h-6 w-6" />
+				</Button>
+				</div>
+
+				{/* Bottom info bar */}
+				<div className="p-4 text-white text-center">
+				<p className="text-sm">{allPhotos[selectedPhotoIndex].name}</p>
+				<p className="text-xs opacity-75">
+					{new Date(allPhotos[selectedPhotoIndex].createdAt).toLocaleString()}
+				</p>
+				</div>
+			</div>
 			)}
 
 			{/* Main Content */}

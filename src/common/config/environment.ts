@@ -8,5 +8,8 @@ export function getEnvironment() {
 		messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
 		appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 		baseURL: process.env.NEXT_PUBLIC_BASE_URL_V3,
+		resumesBaseURL:
+			process.env.NEXT_PUBLIC_RESUMES_BASE_URL ??
+			process.env.NEXT_PUBLIC_BASE_URL_V3,
 	};
 }

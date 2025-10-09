@@ -4,6 +4,11 @@ import { getIdToken, onIdTokenChanged } from "@firebase/auth";
 
 const config = getEnvironment();
 
+type ApiFetchOptions = RequestInit & {
+	noAuth?: boolean;
+	baseURLOverride?: string;
+};
+
 /**
  * A wrapper around fetch() that:
  * - Fetches an auth token from Firebase, if logged in
@@ -13,9 +18,9 @@ const config = getEnvironment();
  */
 export async function apiFetch<T>(
 	url: string,
-	options: RequestInit & { noAuth?: boolean } = {}
+	options: ApiFetchOptions = {}
 ): Promise<T> {
-	const { noAuth, ...fetchOptions } = options;
+	const { noAuth, baseURLOverride, ...fetchOptions } = options;
 
 	// Optionally attach headers
 	const headers = new Headers(fetchOptions.headers || {});
@@ -39,7 +44,11 @@ export async function apiFetch<T>(
 		headers.set("Content-Type", "application/json");
 	}
 
-	const finalUrl = `${config.baseURL}${url}`;
+	const isAbsoluteUrl = /^https?:\/\//i.test(url);
+	const base =
+		baseURLOverride !== undefined ? baseURLOverride : config.baseURL ?? "";
+	const sanitizedBase = base.endsWith("/") ? base.slice(0, -1) : base;
+	const finalUrl = isAbsoluteUrl ? url : `${sanitizedBase}${url}`;
 	const response = await fetch(finalUrl, {
 		...fetchOptions,
 		headers,

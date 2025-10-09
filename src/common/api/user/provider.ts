@@ -1,5 +1,8 @@
 import { apiFetch } from "@/common/api/apiClient";
+import { getEnvironment } from "@/common/config";
 import { UserEntity } from "./entity";
+
+const { resumesBaseURL } = getEnvironment();
 
 export async function getAllUsers(active?: boolean): Promise<UserEntity[]> {
 	const queryParam = active !== undefined ? `?active=${active}` : "";
@@ -53,6 +56,7 @@ export async function getUserResume(id: string): Promise<Blob> {
 export async function getAllResumes(): Promise<Blob> {
 	const res = apiFetch<Blob>(`/users/resumes`, {
 		method: "GET",
+		baseURLOverride: resumesBaseURL,
 	});
 
 	return await res;

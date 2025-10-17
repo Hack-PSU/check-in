@@ -91,13 +91,13 @@ export function BottomNav({ className }: { className?: string }) {
 			},
 			{ name: "Schedule", url: "/schedule", icon: LucideCalendarDays },
 			{ name: "Internal Tools", url: "/tools", icon: LaptopIcon },
+			{ name: "Gallery", url: "/gallery", icon: ImageIcon },
 			{
 				name: "Management",
 				url: "/flag",
 				icon: ToggleRight,
 				children: [
 					{ name: "Flags", url: "/flag" },
-					{ name: "Gallery", url: "/gallery", icon: ImageIcon },
 				].concat(
 					permission >= 3
 						? [
@@ -153,13 +153,13 @@ export function BottomNav({ className }: { className?: string }) {
 		},
 		{ name: "Schedule", url: "/schedule", icon: LucideCalendarDays },
 		{ name: "Internal Tools", url: "/tools", icon: LaptopIcon },
+		{ name: "Gallery", url: "/gallery", icon: ImageIcon },
 		{
 			name: "Management",
 			url: "/flag",
 			icon: ToggleRight,
 			children: [
 				{ name: "Flags", url: "/flag" },
-				{ name: "Gallery", url: "/gallery", icon: ImageIcon },
 			].concat(
 				permission >= 3
 					? [

@@ -2,7 +2,7 @@
 
 import type React from "react";
 import { useState, useRef, useEffect, useCallback } from "react";
-import { useGetAllPhotos, useUploadPhoto } from "@/common/api/photos";
+import { useGetAllPhotos, useGetPendingPhotos, useUploadPhoto, useApprovePhoto, useRejectPhoto } from "@/common/api/photos";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -24,11 +24,17 @@ import {
 	Image as ImageIconAlt,
 	Maximize,
 	Timer,
+	Check,
+	XCircle,
+	Clock,
 } from "lucide-react";
 
 const PHOTOS_PER_PAGE = 10;
 
+type TabType = "approved" | "pending" | "rejected";
+
 const PhotoGalleryPage: React.FC = () => {
+	const [currentTab, setCurrentTab] = useState<TabType>("approved");
 	const [currentPage, setCurrentPage] = useState(1);
 	const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number | null>(
 		null
@@ -62,14 +68,33 @@ const PhotoGalleryPage: React.FC = () => {
 	const streamRef = useRef<MediaStream | null>(null);
 
 	const { data: allPhotos, isLoading, error, refetch } = useGetAllPhotos();
+	const { data: pendingPhotos, isLoading: isPendingLoading, error: pendingError, refetch: refetchPending } = useGetPendingPhotos();
 	const uploadMutation = useUploadPhoto();
+	const approveMutation = useApprovePhoto();
+	const rejectMutation = useRejectPhoto();
 
-	// Calculate pagination
-	const totalPhotos = allPhotos?.length || 0;
+	// Calculate pagination and filter photos based on current tab
+	const getPhotosForTab = (): typeof allPhotos => {
+		if (currentTab === "approved") {
+			return allPhotos?.filter(p => !p.approvalStatus || p.approvalStatus === "approved") || [];
+		} else if (currentTab === "pending") {
+			return pendingPhotos?.filter(p => p.approvalStatus === "pending") || [];
+		} else {
+			return pendingPhotos?.filter(p => p.approvalStatus === "rejected") || [];
+		}
+	};
+
+	const displayPhotos = getPhotosForTab();
+	const totalPhotos = displayPhotos?.length || 0;
 	const totalPages = Math.ceil(totalPhotos / PHOTOS_PER_PAGE);
 	const startIndex = (currentPage - 1) * PHOTOS_PER_PAGE;
 	const endIndex = startIndex + PHOTOS_PER_PAGE;
-	const currentPhotos = allPhotos?.slice(startIndex, endIndex) || [];
+	const currentPhotos = displayPhotos?.slice(startIndex, endIndex) || [];
+
+	// Reset to page 1 when changing tabs
+	useEffect(() => {
+		setCurrentPage(1);
+	}, [currentTab]);
 
 	// Handle keyboard navigation
 	useEffect(() => {
@@ -135,15 +160,39 @@ const PhotoGalleryPage: React.FC = () => {
 	}, [isCameraOpen]);
 
 	const navigatePhoto = (direction: "prev" | "next") => {
-		if (!allPhotos || selectedPhotoIndex === null) return;
+		if (!displayPhotos || selectedPhotoIndex === null) return;
 
 		if (direction === "prev" && selectedPhotoIndex > 0) {
 			setSelectedPhotoIndex(selectedPhotoIndex - 1);
 		} else if (
 			direction === "next" &&
-			selectedPhotoIndex < allPhotos.length - 1
+			selectedPhotoIndex < displayPhotos.length - 1
 		) {
 			setSelectedPhotoIndex(selectedPhotoIndex + 1);
+		}
+	};
+
+	const handleApprove = async (filename: string) => {
+		try {
+			await approveMutation.mutateAsync(filename);
+			toast.success("Photo approved successfully!");
+			refetch();
+			refetchPending();
+		} catch (error) {
+			toast.error("Failed to approve photo");
+			console.error(error);
+		}
+	};
+
+	const handleReject = async (filename: string) => {
+		try {
+			await rejectMutation.mutateAsync(filename);
+			toast.success("Photo rejected successfully!");
+			refetch();
+			refetchPending();
+		} catch (error) {
+			toast.error("Failed to reject photo");
+			console.error(error);
 		}
 	};
 
@@ -608,7 +657,7 @@ const PhotoGalleryPage: React.FC = () => {
 		);
 	};
 
-	if (isLoading) {
+	if (isLoading || isPendingLoading) {
 		return (
 			<div className="flex justify-center items-center min-h-screen">
 				<Loader2 className="h-8 w-8 animate-spin" />
@@ -616,7 +665,7 @@ const PhotoGalleryPage: React.FC = () => {
 		);
 	}
 
-	if (error) {
+	if (error || pendingError) {
 		return (
 			<div className="container mx-auto p-4">
 				<Alert variant="destructive">
@@ -634,7 +683,7 @@ const PhotoGalleryPage: React.FC = () => {
 			{!isCameraOpen && (
 				<div className="sticky top-0 z-40 bg-white border-b">
 					<div className="container mx-auto px-4 py-3">
-						<div className="flex justify-between items-center">
+						<div className="flex justify-between items-center mb-4">
 							<h1 className="text-xl md:text-2xl font-bold">Gallery</h1>
 							<div className="flex gap-2">
 								<Button
@@ -656,6 +705,64 @@ const PhotoGalleryPage: React.FC = () => {
 									<span className="hidden md:inline">Camera</span>
 								</Button>
 							</div>
+						</div>
+
+						{/* Tabs */}
+						<div className="flex gap-1 border-b -mb-3">
+							<button
+								onClick={() => setCurrentTab("approved")}
+								className={`px-4 py-2 font-medium text-sm transition-colors relative ${
+									currentTab === "approved"
+										? "text-blue-600 border-b-2 border-blue-600"
+										: "text-gray-600 hover:text-gray-900"
+								}`}
+							>
+								<div className="flex items-center gap-2">
+									<CheckCircle className="h-4 w-4" />
+									<span>Approved</span>
+									{allPhotos && (
+										<span className="bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded-full">
+											{allPhotos.filter(p => !p.approvalStatus || p.approvalStatus === "approved").length}
+										</span>
+									)}
+								</div>
+							</button>
+							<button
+								onClick={() => setCurrentTab("pending")}
+								className={`px-4 py-2 font-medium text-sm transition-colors relative ${
+									currentTab === "pending"
+										? "text-blue-600 border-b-2 border-blue-600"
+										: "text-gray-600 hover:text-gray-900"
+								}`}
+							>
+								<div className="flex items-center gap-2">
+									<Clock className="h-4 w-4" />
+									<span>Pending</span>
+									{pendingPhotos && (
+										<span className="bg-yellow-100 text-yellow-800 text-xs px-2 py-0.5 rounded-full">
+											{pendingPhotos.filter(p => p.approvalStatus === "pending").length}
+										</span>
+									)}
+								</div>
+							</button>
+							<button
+								onClick={() => setCurrentTab("rejected")}
+								className={`px-4 py-2 font-medium text-sm transition-colors relative ${
+									currentTab === "rejected"
+										? "text-blue-600 border-b-2 border-blue-600"
+										: "text-gray-600 hover:text-gray-900"
+								}`}
+							>
+								<div className="flex items-center gap-2">
+									<XCircle className="h-4 w-4" />
+									<span>Rejected</span>
+									{pendingPhotos && (
+										<span className="bg-red-100 text-red-800 text-xs px-2 py-0.5 rounded-full">
+											{pendingPhotos.filter(p => p.approvalStatus === "rejected").length}
+										</span>
+									)}
+								</div>
+							</button>
 						</div>
 					</div>
 				</div>
@@ -998,12 +1105,12 @@ const PhotoGalleryPage: React.FC = () => {
 			)}
 
 			{/* Photo Viewer Modal */}
-			{selectedPhotoIndex !== null && allPhotos && (
+			{selectedPhotoIndex !== null && displayPhotos && (
 			<div className="fixed inset-0 bg-black z-50 flex flex-col">
 				{/* Top bar */}
 				<div className="flex justify-between items-center p-4 text-white">
 				<span className="text-sm">
-					{selectedPhotoIndex + 1} / {allPhotos.length}
+					{selectedPhotoIndex + 1} / {displayPhotos.length}
 				</span>
 				<Button
 					size="sm"
@@ -1017,16 +1124,16 @@ const PhotoGalleryPage: React.FC = () => {
 
 				{/* Centered image/video viewer */}
 				<div className="flex-1 flex items-center justify-center overflow-hidden p-4 relative">
-				{isVideo(allPhotos[selectedPhotoIndex].url) ? (
+				{isVideo(displayPhotos[selectedPhotoIndex].url) ? (
 					<video
-					src={allPhotos[selectedPhotoIndex].url}
+					src={displayPhotos[selectedPhotoIndex].url}
 					controls
 					className="max-w-[95vw] max-h-[85vh] object-contain rounded-lg shadow-lg"
 					/>
 				) : (
 					<img
-					src={allPhotos[selectedPhotoIndex].url}
-					alt={allPhotos[selectedPhotoIndex].name}
+					src={displayPhotos[selectedPhotoIndex].url}
+					alt={displayPhotos[selectedPhotoIndex].name}
 					className="max-w-[95vw] max-h-[85vh] object-contain rounded-lg shadow-lg"
 					/>
 				)}
@@ -1047,18 +1154,70 @@ const PhotoGalleryPage: React.FC = () => {
 					size="icon"
 					className="absolute right-4 text-white hover:bg-white/20"
 					onClick={() => navigatePhoto("next")}
-					disabled={selectedPhotoIndex === allPhotos.length - 1}
+					disabled={selectedPhotoIndex === displayPhotos.length - 1}
 				>
 					<ChevronRight className="h-6 w-6" />
 				</Button>
 				</div>
 
-				{/* Bottom info bar */}
-				<div className="p-4 text-white text-center">
-				<p className="text-sm">{allPhotos[selectedPhotoIndex].name}</p>
-				<p className="text-xs opacity-75">
-					{new Date(allPhotos[selectedPhotoIndex].createdAt).toLocaleString()}
-				</p>
+				{/* Bottom info bar with admin controls */}
+				<div className="p-4 text-white text-center space-y-3">
+				<div>
+					<p className="text-sm">{displayPhotos[selectedPhotoIndex].name}</p>
+					<p className="text-xs opacity-75">
+						{new Date(displayPhotos[selectedPhotoIndex].createdAt).toLocaleString()}
+					</p>
+					{displayPhotos[selectedPhotoIndex].uploadedBy && (
+						<p className="text-xs opacity-75">
+							Uploaded by: {displayPhotos[selectedPhotoIndex].uploadedBy}
+						</p>
+					)}
+				</div>
+
+				{/* Admin controls in viewer */}
+				{(currentTab === "pending" || currentTab === "rejected") && (
+					<div className="flex gap-2 justify-center max-w-md mx-auto">
+						{currentTab === "pending" && (
+							<>
+								<Button
+									onClick={() => {
+										handleApprove(displayPhotos[selectedPhotoIndex].name);
+										setSelectedPhotoIndex(null);
+									}}
+									className="bg-green-600 hover:bg-green-700"
+									disabled={approveMutation.isPending}
+								>
+									<Check className="h-4 w-4 mr-2" />
+									Approve
+								</Button>
+								<Button
+									onClick={() => {
+										handleReject(displayPhotos[selectedPhotoIndex].name);
+										setSelectedPhotoIndex(null);
+									}}
+									className="bg-red-600 hover:bg-red-700"
+									disabled={rejectMutation.isPending}
+								>
+									<XCircle className="h-4 w-4 mr-2" />
+									Reject
+								</Button>
+							</>
+						)}
+						{currentTab === "rejected" && (
+							<Button
+								onClick={() => {
+									handleApprove(displayPhotos[selectedPhotoIndex].name);
+									setSelectedPhotoIndex(null);
+								}}
+								className="bg-green-600 hover:bg-green-700"
+								disabled={approveMutation.isPending}
+							>
+								<Check className="h-4 w-4 mr-2" />
+								Approve
+							</Button>
+						)}
+					</div>
+				)}
 				</div>
 			</div>
 			)}
@@ -1137,11 +1296,47 @@ const PhotoGalleryPage: React.FC = () => {
 									/>
 								)}
 							</div>
-							<div className="mt-4 text-center">
+							<div className="mt-4 text-center space-y-2">
 								<p className="font-medium">{currentPhotos[0].name}</p>
 								<p className="text-sm text-gray-500">
 									{new Date(currentPhotos[0].createdAt).toLocaleString()}
 								</p>
+
+								{/* Admin controls in slideshow */}
+								{(currentTab === "pending" || currentTab === "rejected") && (
+									<div className="flex gap-2 justify-center max-w-md mx-auto pt-2">
+										{currentTab === "pending" && (
+											<>
+												<Button
+													onClick={() => handleApprove(currentPhotos[0].name)}
+													className="bg-green-600 hover:bg-green-700"
+													disabled={approveMutation.isPending}
+												>
+													<Check className="h-4 w-4 mr-2" />
+													Approve
+												</Button>
+												<Button
+													onClick={() => handleReject(currentPhotos[0].name)}
+													className="bg-red-600 hover:bg-red-700"
+													disabled={rejectMutation.isPending}
+												>
+													<XCircle className="h-4 w-4 mr-2" />
+													Reject
+												</Button>
+											</>
+										)}
+										{currentTab === "rejected" && (
+											<Button
+												onClick={() => handleApprove(currentPhotos[0].name)}
+												className="bg-green-600 hover:bg-green-700"
+												disabled={approveMutation.isPending}
+											>
+												<Check className="h-4 w-4 mr-2" />
+												Approve
+											</Button>
+										)}
+									</div>
+								)}
 							</div>
 						</CardContent>
 					</Card>
@@ -1153,29 +1348,104 @@ const PhotoGalleryPage: React.FC = () => {
 						{currentPhotos.map((photo, index) => (
 							<div
 								key={`${photo.url}-${index}`}
-								className="aspect-square bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-pointer"
-								onClick={() => setSelectedPhotoIndex(startIndex + index)}
+								className="relative aspect-square bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow group"
 							>
-								{isVideo(photo.url) ? (
-									<div className="relative w-full h-full bg-gray-100">
-										<video
-											src={photo.url}
-											className="w-full h-full object-cover"
-											preload="none"
-											poster=""
-										/>
-										<div className="absolute inset-0 flex items-center justify-center">
-											<div className="bg-black/50 rounded-full p-3">
-												<Play className="h-6 w-6 text-white" />
+								<div
+									className="w-full h-full cursor-pointer"
+									onClick={() => setSelectedPhotoIndex(startIndex + index)}
+								>
+									{isVideo(photo.url) ? (
+										<div className="relative w-full h-full bg-gray-100">
+											<video
+												src={photo.url}
+												className="w-full h-full object-cover"
+												preload="none"
+												poster=""
+											/>
+											<div className="absolute inset-0 flex items-center justify-center">
+												<div className="bg-black/50 rounded-full p-3">
+													<Play className="h-6 w-6 text-white" />
+												</div>
 											</div>
 										</div>
+									) : (
+										<LazyImage
+											src={photo.url}
+											alt={photo.name}
+											className="w-full h-full"
+										/>
+									)}
+								</div>
+
+								{/* Admin controls for pending and rejected photos */}
+								{(currentTab === "pending" || currentTab === "rejected") && (
+									<div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
+										<div className="flex gap-2">
+											{currentTab === "pending" && (
+												<>
+													<Button
+														size="sm"
+														onClick={(e) => {
+															e.stopPropagation();
+															handleApprove(photo.name);
+														}}
+														className="flex-1 bg-green-600 hover:bg-green-700 text-white h-8 text-xs"
+														disabled={approveMutation.isPending}
+													>
+														<Check className="h-3 w-3 mr-1" />
+														Approve
+													</Button>
+													<Button
+														size="sm"
+														onClick={(e) => {
+															e.stopPropagation();
+															handleReject(photo.name);
+														}}
+														className="flex-1 bg-red-600 hover:bg-red-700 text-white h-8 text-xs"
+														disabled={rejectMutation.isPending}
+													>
+														<X className="h-3 w-3 mr-1" />
+														Reject
+													</Button>
+												</>
+											)}
+											{currentTab === "rejected" && (
+												<Button
+													size="sm"
+													onClick={(e) => {
+														e.stopPropagation();
+														handleApprove(photo.name);
+													}}
+													className="flex-1 bg-green-600 hover:bg-green-700 text-white h-8 text-xs"
+													disabled={approveMutation.isPending}
+												>
+													<Check className="h-3 w-3 mr-1" />
+													Approve
+												</Button>
+											)}
+										</div>
 									</div>
-								) : (
-									<LazyImage
-										src={photo.url}
-										alt={photo.name}
-										className="w-full h-full"
-									/>
+								)}
+
+								{/* Status indicator badge */}
+								{photo.approvalStatus && (
+									<div className="absolute top-2 right-2">
+										{photo.approvalStatus === "pending" && (
+											<div className="bg-yellow-500 text-white rounded-full p-1 shadow-md">
+												<Clock className="h-3 w-3" />
+											</div>
+										)}
+										{photo.approvalStatus === "approved" && (
+											<div className="bg-green-500 text-white rounded-full p-1 shadow-md">
+												<CheckCircle className="h-3 w-3" />
+											</div>
+										)}
+										{photo.approvalStatus === "rejected" && (
+											<div className="bg-red-500 text-white rounded-full p-1 shadow-md">
+												<XCircle className="h-3 w-3" />
+											</div>
+										)}
+									</div>
 								)}
 							</div>
 						))}

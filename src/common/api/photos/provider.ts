@@ -20,3 +20,24 @@ export const getAllPhotos = async (): Promise<PhotoEntity[]> => {
 	});
 	return data;
 };
+
+export const getPendingPhotos = async (): Promise<PhotoEntity[]> => {
+	const data = await apiFetch<PhotoEntity[]>("/photos/pending", {
+		method: "GET",
+	});
+	return data;
+};
+
+export const approvePhoto = async (filename: string): Promise<{ message: string }> => {
+	const data = await apiFetch<{ message: string }>(`/photos/${filename}/approve`, {
+		method: "PATCH",
+	});
+	return data;
+};
+
+export const rejectPhoto = async (filename: string): Promise<{ message: string }> => {
+	const data = await apiFetch<{ message: string }>(`/photos/${filename}/reject`, {
+		method: "PATCH",
+	});
+	return data;
+};

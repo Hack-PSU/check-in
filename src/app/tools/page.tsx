@@ -33,6 +33,8 @@ import {
 	Lock,
 	MessagesSquareIcon,
 	PackageOpen,
+	Gavel,
+	HelpCircle,
 } from "lucide-react";
 import { useUploadProjectsCsv } from "@/common/api/judging/hook";
 import { useAllResumes } from "@/common/api/user/hook";
@@ -45,6 +47,18 @@ const quickLinks = [
 		url: "https://hackpsu.org",
 		icon: Globe,
 		description: "HackPSU main website",
+	},
+	{
+		name: "Gavel Judging",
+		url: "https://gavel.hackpsu.org",
+		icon: Gavel,
+		description: "Judging platform",
+	},
+	{
+		name: "QStack",
+		url: "https://qstack.hackpsu.org",
+		icon: HelpCircle,
+		description: "Participant help desk",
 	},
 	{
 		name: "Finance Dashboard",

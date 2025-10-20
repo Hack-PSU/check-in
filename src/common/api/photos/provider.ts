@@ -5,6 +5,8 @@ export const uploadPhoto = async (file: File): Promise<PhotoUploadResponse> => {
 	const formData = new FormData();
 	formData.append("photo", file);
 
+	const fileType = file.type.split('/')[1] || 'unknown';
+	formData.append("fileType", fileType);
 	const data = await apiFetch<PhotoUploadResponse>("/photos/upload", {
 		method: "POST",
 		body: formData,
@@ -15,6 +17,27 @@ export const uploadPhoto = async (file: File): Promise<PhotoUploadResponse> => {
 export const getAllPhotos = async (): Promise<PhotoEntity[]> => {
 	const data = await apiFetch<PhotoEntity[]>("/photos", {
 		method: "GET",
+	});
+	return data;
+};
+
+export const getPendingPhotos = async (): Promise<PhotoEntity[]> => {
+	const data = await apiFetch<PhotoEntity[]>("/photos/pending", {
+		method: "GET",
+	});
+	return data;
+};
+
+export const approvePhoto = async (filename: string): Promise<{ message: string }> => {
+	const data = await apiFetch<{ message: string }>(`/photos/${filename}/approve`, {
+		method: "PATCH",
+	});
+	return data;
+};
+
+export const rejectPhoto = async (filename: string): Promise<{ message: string }> => {
+	const data = await apiFetch<{ message: string }>(`/photos/${filename}/reject`, {
+		method: "PATCH",
 	});
 	return data;
 };

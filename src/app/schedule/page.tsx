@@ -63,9 +63,9 @@ export default function EventSchedule() {
 	const { data: hackathon } = useActiveHackathonForStatic();
 	const { data: events = [], isLoading, refetch } = useAllEvents(hackathon?.id);
 
-	const { day1Events, day2Events, day3Events, eventDays } = useMemo(() => {
+	const { eventsByDay, eventDays } = useMemo(() => {
 		if (!events.length)
-			return { day1Events: [], day2Events: [], day3Events: [], eventDays: [] };
+			return { eventsByDay: new Map<string, EventEntityResponse[]>(), eventDays: [] };
 
 		// Sort events by start time
 		const sortedEvents = [...events].sort((a, b) => a.startTime - b.startTime);
@@ -89,11 +89,8 @@ export default function EventSchedule() {
 		const eventDays = Array.from(days).sort(
 			(a, b) => new Date(a).getTime() - new Date(b).getTime()
 		);
-		const day1Events = eventsByDay.get(eventDays[0]) || [];
-		const day2Events = eventsByDay.get(eventDays[1]) || [];
-		const day3Events = eventsByDay.get(eventDays[2]) || [];
 
-		return { day1Events, day2Events, day3Events, eventDays };
+		return { eventsByDay, eventDays };
 	}, [events]);
 
 	const formatTime = (timestamp: number) => {
@@ -368,7 +365,7 @@ export default function EventSchedule() {
 	}
 
 	return (
-		<div className="container mx-auto p-6 pb-24 space-y-4 sm:space-y-6">
+		<div className="container mx-auto p-6 pb-24 space-y-4 sm:space-y-6 max-w-full overflow-x-hidden">
 			{/* Header */}
 			<Card>
 				<CardHeader className="pb-4">
@@ -394,60 +391,41 @@ export default function EventSchedule() {
 			</Card>
 
 			{/* Schedule Tabs */}
-			<Tabs defaultValue="day1" className="space-y-4">
-				<TabsList
-					className={`grid w-full ${eventDays.length === 3 ? "grid-cols-3" : eventDays.length === 2 ? "grid-cols-2" : "grid-cols-1"}`}
-				>
+			{eventDays.length > 0 && (
+				<Tabs defaultValue="day0" className="space-y-4">
+					<TabsList
+						className={`grid w-full overflow-x-auto`}
+						style={{
+							gridTemplateColumns: `repeat(${eventDays.length}, minmax(0, 1fr))`
+						}}
+					>
+						{eventDays.map((day, index) => (
+							<TabsTrigger
+								key={`day${index}`}
+								value={`day${index}`}
+								className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm whitespace-nowrap"
+							>
+								<Calendar className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+								<span className="hidden sm:inline truncate">{formatDateLong(day)}</span>
+								<span className="sm:hidden truncate">{formatDate(day)}</span>
+							</TabsTrigger>
+						))}
+					</TabsList>
+
 					{eventDays.map((day, index) => (
-						<TabsTrigger
-							key={`day${index + 1}`}
-							value={`day${index + 1}`}
-							className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm"
-						>
-							<Calendar className="h-3 w-3 sm:h-4 sm:w-4" />
-							<span className="hidden sm:inline">{formatDateLong(day)}</span>
-							<span className="sm:hidden">{formatDate(day)}</span>
-						</TabsTrigger>
+						<TabsContent key={`day${index}-content`} value={`day${index}`}>
+							<Card>
+								<CardContent className="p-4 sm:p-6">
+									<DaySchedule
+										events={eventsByDay.get(day) || []}
+										dayTitle={formatDateLong(day)}
+									/>
+								</CardContent>
+							</Card>
+						</TabsContent>
 					))}
-				</TabsList>
-
-				<TabsContent value="day1">
-					<Card>
-						<CardContent className="p-4 sm:p-6">
-							<DaySchedule
-								events={day1Events}
-								dayTitle={eventDays[0] ? formatDateLong(eventDays[0]) : "Day 1"}
-							/>
-						</CardContent>
-					</Card>
-				</TabsContent>
-
-				<TabsContent value="day2">
-					<Card>
-						<CardContent className="p-4 sm:p-6">
-							<DaySchedule
-								events={day2Events}
-								dayTitle={eventDays[1] ? formatDateLong(eventDays[1]) : "Day 2"}
-							/>
-						</CardContent>
-					</Card>
-				</TabsContent>
-
-				{eventDays.length >= 3 && (
-					<TabsContent value="day3">
-						<Card>
-							<CardContent className="p-4 sm:p-6">
-								<DaySchedule
-									events={day3Events}
-									dayTitle={
-										eventDays[2] ? formatDateLong(eventDays[2]) : "Day 3"
-									}
-								/>
-							</CardContent>
-						</Card>
-					</TabsContent>
-				)}
-			</Tabs>
+				</Tabs>
+			)}
 
 			{/* Event Details Sheet */}
 			<EventDetailsSheet />

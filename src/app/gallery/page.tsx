@@ -699,13 +699,13 @@ const PhotoGalleryPage: React.FC = () => {
 	}
 
 	return (
-		<div className="min-h-screen bg-gray-50">
+		<div className="min-h-screen bg-gray-50 overflow-x-hidden">
 			<Toaster />
 
 			{/* Header - Hidden when camera is open */}
 			{!isCameraOpen && (
-				<div className="sticky top-0 z-40 bg-white border-b">
-					<div className="container mx-auto px-4 py-3">
+				<div className="sticky top-0 z-40 bg-white border-b overflow-x-hidden">
+					<div className="container mx-auto px-4 py-3 max-w-full">
 						<div className="flex justify-between items-center mb-4">
 							<h1 className="text-xl md:text-2xl font-bold">Gallery</h1>
 							<div className="flex gap-2">
@@ -731,7 +731,7 @@ const PhotoGalleryPage: React.FC = () => {
 						</div>
 
 						{/* Tabs */}
-						<div className="flex gap-1 border-b -mb-3">
+						<div className="flex gap-1 border-b -mb-3 overflow-x-auto">
 							<button
 								onClick={() => setCurrentTab("approved")}
 								className={`px-4 py-2 font-medium text-sm transition-colors relative ${
@@ -1274,7 +1274,7 @@ const PhotoGalleryPage: React.FC = () => {
 			)}
 
 			{/* Main Content */}
-			<div className="container mx-auto px-4 py-6">
+			<div className="container mx-auto px-4 py-6 max-w-full overflow-x-hidden">
 				{/* Pagination */}
 				{totalPages > 1 && (
 					<div className="mb-6 flex justify-center items-center gap-2">
@@ -1428,7 +1428,7 @@ const PhotoGalleryPage: React.FC = () => {
 
 				{/* Grid View */}
 				{currentPhotos.length > 0 ? (
-					<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+					<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 w-full">
 						{currentPhotos.map((photo, index) => (
 							<div
 								key={`${photo.url}-${index}`}

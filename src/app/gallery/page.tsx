@@ -24,6 +24,7 @@ import {
 	Image as ImageIconAlt,
 	Maximize,
 	Timer,
+	Download,
 	Check,
 	XCircle,
 	Clock,
@@ -169,6 +170,28 @@ const PhotoGalleryPage: React.FC = () => {
 			selectedPhotoIndex < displayPhotos.length - 1
 		) {
 			setSelectedPhotoIndex(selectedPhotoIndex + 1);
+		}
+	};
+
+	// Download helper: try to fetch as blob then trigger download; fallback opens in new tab
+	const downloadMedia = async (url: string, filename?: string) => {
+		try {
+			const res = await fetch(url);
+			if (!res.ok) throw new Error("Network response was not ok");
+			const blob = await res.blob();
+			const objectUrl = URL.createObjectURL(blob);
+
+			const link = document.createElement("a");
+			link.href = objectUrl;
+			link.download = filename || url.split("/").pop() || "download";
+			document.body.appendChild(link);
+			link.click();
+			link.remove();
+			URL.revokeObjectURL(objectUrl);
+		} catch (err) {
+			console.warn("download failed, falling back to opening in new tab:", err);
+			window.open(url, "_blank", "noopener,noreferrer");
+			toast.error("Could not download directly. Opened in a new tab.");
 		}
 	};
 
@@ -1138,6 +1161,21 @@ const PhotoGalleryPage: React.FC = () => {
 					/>
 				)}
 
+				{/* Download button inside full-screen viewer */}
+				<button
+					onClick={(e) => {
+						e.stopPropagation();
+						downloadMedia(
+							displayPhotos[selectedPhotoIndex].url,
+							displayPhotos[selectedPhotoIndex].name
+						);
+					}}
+					aria-label={`Download ${displayPhotos[selectedPhotoIndex].name}`}
+					className="absolute bottom-6 right-6 bg-black/40 text-white p-3 rounded-lg hover:bg-black/60 backdrop-blur z-50"
+				>
+					<Download className="h-5 w-5" />
+				</button>
+
 				{/* Navigation buttons */}
 				<Button
 					variant="ghost"
@@ -1175,7 +1213,7 @@ const PhotoGalleryPage: React.FC = () => {
 				</div>
 
 				{/* Admin controls in viewer */}
-				{(currentTab === "pending" || currentTab === "rejected") && (
+				{(currentTab === "pending" || currentTab === "rejected" || currentTab === "approved") && (
 					<div className="flex gap-2 justify-center max-w-md mx-auto">
 						{currentTab === "pending" && (
 							<>
@@ -1216,6 +1254,19 @@ const PhotoGalleryPage: React.FC = () => {
 								Approve
 							</Button>
 						)}
+						{currentTab === "approved" && (
+							<Button
+								onClick={() => {
+									handleReject(displayPhotos[selectedPhotoIndex].name);
+									setSelectedPhotoIndex(null);
+								}}
+								className="bg-red-600 hover:bg-red-700"
+								disabled={rejectMutation.isPending}
+							>
+								<XCircle className="h-4 w-4 mr-2" />
+								Reject
+							</Button>
+						)}
 					</div>
 				)}
 				</div>
@@ -1224,7 +1275,6 @@ const PhotoGalleryPage: React.FC = () => {
 
 			{/* Main Content */}
 			<div className="container mx-auto px-4 py-6">
-
 				{/* Pagination */}
 				{totalPages > 1 && (
 					<div className="mb-6 flex justify-center items-center gap-2">
@@ -1279,21 +1329,45 @@ const PhotoGalleryPage: React.FC = () => {
 				{viewMode === "slideshow" && currentPhotos.length > 0 && (
 					<Card className="mb-6">
 						<CardContent className="p-4">
-							<div className="aspect-video bg-gray-100 rounded-lg flex items-center justify-center">
+							<div className="aspect-video bg-gray-100 rounded-lg flex items-center justify-center relative">
 								{isVideo(currentPhotos[0].url) ? (
-									<video
-										src={currentPhotos[0].url}
-										controls
-										className="w-full h-full object-contain rounded-lg"
-										preload="metadata"
-									/>
+									<>
+										<video
+											src={currentPhotos[0].url}
+											controls
+											className="w-full h-full object-contain rounded-lg"
+											preload="metadata"
+										/>
+										<button
+											onClick={(e) => {
+												e.stopPropagation();
+												downloadMedia(currentPhotos[0].url, currentPhotos[0].name);
+											}}
+											aria-label={`Download ${currentPhotos[0].name}`}
+											className="absolute bottom-2 right-2 bg-black/40 text-white p-2 rounded-lg hover:bg-black/60 backdrop-blur z-10"
+										>
+											<Download className="h-4 w-4" />
+										</button>
+									</>
 								) : (
-									<LazyImage
-										src={currentPhotos[0].url}
-										alt={currentPhotos[0].name}
-										className="w-full h-full object-contain rounded-lg cursor-pointer"
-										onClick={() => setSelectedPhotoIndex(startIndex)}
-									/>
+									<>
+										<LazyImage
+											src={currentPhotos[0].url}
+											alt={currentPhotos[0].name}
+											className="w-full h-full object-contain rounded-lg cursor-pointer"
+											onClick={() => setSelectedPhotoIndex(startIndex)}
+										/>
+										<button
+											onClick={(e) => {
+												e.stopPropagation();
+												downloadMedia(currentPhotos[0].url, currentPhotos[0].name);
+											}}
+											aria-label={`Download ${currentPhotos[0].name}`}
+											className="absolute bottom-2 right-2 bg-black/40 text-white p-2 rounded-lg hover:bg-black/60 backdrop-blur z-10"
+										>
+											<Download className="h-4 w-4" />
+										</button>
+									</>
 								)}
 							</div>
 							<div className="mt-4 text-center space-y-2">
@@ -1303,7 +1377,7 @@ const PhotoGalleryPage: React.FC = () => {
 								</p>
 
 								{/* Admin controls in slideshow */}
-								{(currentTab === "pending" || currentTab === "rejected") && (
+								{(currentTab === "pending" || currentTab === "rejected" || currentTab === "approved") && (
 									<div className="flex gap-2 justify-center max-w-md mx-auto pt-2">
 										{currentTab === "pending" && (
 											<>
@@ -1333,6 +1407,16 @@ const PhotoGalleryPage: React.FC = () => {
 											>
 												<Check className="h-4 w-4 mr-2" />
 												Approve
+											</Button>
+										)}
+										{currentTab === "approved" && (
+											<Button
+												onClick={() => handleReject(currentPhotos[0].name)}
+												className="bg-red-600 hover:bg-red-700"
+												disabled={rejectMutation.isPending}
+											>
+												<XCircle className="h-4 w-4 mr-2" />
+												Reject
 											</Button>
 										)}
 									</div>
@@ -1376,6 +1460,37 @@ const PhotoGalleryPage: React.FC = () => {
 										/>
 									)}
 								</div>
+
+								{/* Admin controls for approved photos */}
+								{currentTab === "approved" && (
+									<div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
+										<div className="flex gap-2">
+											<button
+												onClick={(e) => {
+													e.stopPropagation();
+													downloadMedia(photo.url, photo.name);
+												}}
+												aria-label={`Download ${photo.name}`}
+												className="flex-1 bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-lg backdrop-blur text-xs flex items-center justify-center gap-1"
+											>
+												<Download className="h-3 w-3" />
+												Download
+											</button>
+											<Button
+												size="sm"
+												onClick={(e) => {
+													e.stopPropagation();
+													handleReject(photo.name);
+												}}
+												className="flex-1 bg-red-600 hover:bg-red-700 text-white h-8 text-xs"
+												disabled={rejectMutation.isPending}
+											>
+												<XCircle className="h-3 w-3 mr-1" />
+												Reject
+											</Button>
+										</div>
+									</div>
+								)}
 
 								{/* Admin controls for pending and rejected photos */}
 								{(currentTab === "pending" || currentTab === "rejected") && (
@@ -1471,8 +1586,6 @@ const PhotoGalleryPage: React.FC = () => {
 						</CardContent>
 					</Card>
 				)}
-
-				
 			</div>
 		</div>
 	);

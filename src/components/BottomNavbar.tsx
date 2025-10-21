@@ -101,6 +101,7 @@ export function BottomNav({ className }: { className?: string }) {
 				].concat(
 					permission >= 3
 						? [
+								{ name: "Reservations", url: "/reservations-admin" },
 								{ name: "Chat Room (Experimental)", url: "/peerjs" },
 								{ name: "Meeting Attendance", url: "/attendance" },
 							]
@@ -163,6 +164,7 @@ export function BottomNav({ className }: { className?: string }) {
 			].concat(
 				permission >= 3
 					? [
+							{ name: "Reservations", url: "/reservations-admin" },
 							{ name: "Chat Room (Experimental)", url: "/peerjs" },
 							{ name: "Meeting Attendance", url: "/attendance" },
 						]

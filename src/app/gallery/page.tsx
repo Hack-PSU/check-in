@@ -3,6 +3,8 @@
 import type React from "react";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useGetAllPhotos, useGetPendingPhotos, useUploadPhoto, useApprovePhoto, useRejectPhoto } from "@/common/api/photos";
+import { useUser } from "@/common/api/user";
+import { useOrganizer } from "@/common/api/organizer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -171,6 +173,19 @@ const PhotoGalleryPage: React.FC = () => {
 		) {
 			setSelectedPhotoIndex(selectedPhotoIndex + 1);
 		}
+	};
+
+	const UserNameDisplay: React.FC<{ userId: string }> = ({ userId }) => {
+		console.log(userId);
+		const { data: user } = useUser(userId);
+		const { data: organizer } = useOrganizer(userId);
+
+		//determine whether it is a user or organizer
+		const firstname = user?.firstName || organizer?.firstName || "";
+		const lastname = user?.lastName || organizer?.lastName || "";
+		
+		const fullName = firstname && lastname ? `${firstname} ${lastname}` : "";
+		return <>{fullName || "Unknown User"}</>;
 	};
 
 	// Download helper: try to fetch as blob then trigger download; fallback opens in new tab
@@ -1459,6 +1474,13 @@ const PhotoGalleryPage: React.FC = () => {
 											className="w-full h-full"
 										/>
 									)}
+								</div>
+
+								{/* User name label - shows on hover */}
+								<div className="absolute top-0 left-0 right-0 p-2 bg-gradient-to-b from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
+									<div className="text-white text-xs font-medium">
+										{photo.uploadedBy ? <UserNameDisplay userId={photo.uploadedBy} /> : "Unknown User"}
+									</div>
 								</div>
 
 								{/* Admin controls for approved photos */}

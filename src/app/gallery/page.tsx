@@ -185,7 +185,7 @@ const PhotoGalleryPage: React.FC = () => {
 		const lastname = user?.lastName || organizer?.lastName || "";
 		
 		const fullName = firstname && lastname ? `${firstname} ${lastname}` : "";
-		return <>{fullName || "Unknown User"}</>;
+		return <>{fullName || userId}</>;
 	};
 
 	// Download helper: try to fetch as blob then trigger download; fallback opens in new tab
@@ -1222,7 +1222,7 @@ const PhotoGalleryPage: React.FC = () => {
 					</p>
 					{displayPhotos[selectedPhotoIndex].uploadedBy && (
 						<p className="text-xs opacity-75">
-							Uploaded by: {displayPhotos[selectedPhotoIndex].uploadedBy}
+							Uploaded by: {<UserNameDisplay userId={displayPhotos[selectedPhotoIndex].uploadedBy} />}
 						</p>
 					)}
 				</div>

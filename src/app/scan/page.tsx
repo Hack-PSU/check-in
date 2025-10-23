@@ -6,6 +6,7 @@ import jsQR from "jsqr";
 import { useFirebase } from "@/common/context";
 import { useAllEvents, useCheckInEvent } from "@/common/api/event";
 import { useActiveHackathonForStatic } from "@/common/api/hackathon/hook";
+import { useFlagState } from "@/common/api/flag/hook";
 import { Button } from "@/components/ui/button";
 import {
 	Select,
@@ -38,6 +39,7 @@ const ScanPage: React.FC = () => {
 	} = useAllEvents();
 	const { data: hackathonData } = useActiveHackathonForStatic();
 	const { mutate: checkInMutate } = useCheckInEvent();
+	const { data: checkInFlag, isLoading: flagLoading } = useFlagState("CheckIn");
 
 	// Start camera
 	useEffect(() => {
@@ -80,6 +82,10 @@ const ScanPage: React.FC = () => {
 			if (!user) return void logout();
 			if (!selectedEvent) return void toast.error("Please select an event");
 			if (!hackathonData) return void toast.error("No active hackathon found");
+			if (!checkInFlag?.isEnabled) {
+				toast.error("Check-in is currently disabled");
+				return;
+			}
 
 			// Prevent duplicate scans within 3 seconds
 			const now = Date.now();
@@ -117,11 +123,11 @@ const ScanPage: React.FC = () => {
 				}
 			);
 		},
-		[user, selectedEvent, hackathonData, checkInMutate, logout, eventsData]
+		[user, selectedEvent, hackathonData, checkInMutate, logout, eventsData, checkInFlag]
 	);
 
 	const captureAndScanImage = useCallback(async () => {
-		if (!videoRef.current || !isScanning) return;
+		if (!videoRef.current || !isScanning || !checkInFlag?.isEnabled) return;
 
 		const canvas = document.createElement("canvas");
 		canvas.width = videoRef.current.videoWidth;
@@ -138,7 +144,7 @@ const ScanPage: React.FC = () => {
 				handleCheckIn(userId);
 			}
 		}
-	}, [handleCheckIn, isScanning]);
+	}, [handleCheckIn, isScanning, checkInFlag]);
 
 	// Continuous scanning
 	useEffect(() => {
@@ -166,7 +172,7 @@ const ScanPage: React.FC = () => {
 		setIsScanning((prev) => !prev);
 	}, []);
 
-	if (eventsLoading)
+	if (eventsLoading || flagLoading)
 		return <div className="max-w-md mx-auto p-4 pb-24">Loading events…</div>;
 
 	if (eventsError)
@@ -178,11 +184,19 @@ const ScanPage: React.FC = () => {
 			</div>
 		);
 
+	const isCheckInDisabled = !checkInFlag?.isEnabled;
+
 	return (
 		<>
 			<Toaster position="bottom-right" richColors />
 			<div className="container max-w-md mx-auto py-8 pb-24">
 				<h1 className="text-2xl font-bold text-center mb-6">QR Code Scanner</h1>
+
+				{isCheckInDisabled && (
+					<Alert variant="destructive" className="mb-4">
+						Check-in is currently disabled. Please contact an administrator.
+					</Alert>
+				)}
 
 				<div className="space-y-4">
 					<div>
@@ -282,6 +296,7 @@ const ScanPage: React.FC = () => {
 							variant={isScanning ? "destructive" : "default"}
 							onClick={toggleScanning}
 							className="flex-1"
+							disabled={isCheckInDisabled}
 						>
 							{isScanning ? "Stop Scanning" : "Start Scanning"}
 						</Button>
@@ -290,7 +305,7 @@ const ScanPage: React.FC = () => {
 							variant="outline"
 							onClick={captureAndScanImage}
 							className="flex-1 bg-transparent"
-							disabled={!isScanning}
+							disabled={!isScanning || isCheckInDisabled}
 						>
 							Manual Scan
 						</Button>
@@ -298,9 +313,11 @@ const ScanPage: React.FC = () => {
 
 					{/* Status text */}
 					<div className="text-center text-sm text-muted-foreground">
-						{isScanning
-							? "Continuously scanning for QR codes..."
-							: "Scanning is paused. Click 'Start Scanning' to resume."}
+						{isCheckInDisabled
+							? "Check-in is currently disabled."
+							: isScanning
+								? "Continuously scanning for QR codes..."
+								: "Scanning is paused. Click 'Start Scanning' to resume."}
 					</div>
 				</div>
 			</div>

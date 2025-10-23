@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Alert } from "@/components/ui/alert";
 import {
 	Select,
 	SelectTrigger,
@@ -30,6 +31,7 @@ import { useAllEvents, useCheckInEvent } from "@/common/api/event";
 import { useAllUsers } from "@/common/api/user";
 import { useActiveHackathonForStatic } from "@/common/api/hackathon";
 import { useFirebase } from "@/common/context";
+import { useFlagState } from "@/common/api/flag/hook";
 
 interface FormValues {
 	userId: string;
@@ -50,6 +52,7 @@ export default function ManualCheckIn() {
 	} = useAllUsers();
 	const { data: hackathon } = useActiveHackathonForStatic();
 	const { mutate: checkInMutate } = useCheckInEvent();
+	const { data: checkInFlag, isLoading: flagLoading } = useFlagState("CheckIn");
 
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [userQuery, setUserQuery] = useState("");
@@ -148,6 +151,11 @@ export default function ManualCheckIn() {
 			return;
 		}
 
+		if (!checkInFlag?.isEnabled) {
+			toast.error("Check-in is currently disabled");
+			return;
+		}
+
 		setIsSubmitting(true);
 		checkInMutate(
 			{
@@ -172,6 +180,8 @@ export default function ManualCheckIn() {
 		);
 	};
 
+	const isCheckInDisabled = !checkInFlag?.isEnabled;
+
 	return (
 		<>
 			<Toaster position="bottom-right" richColors />
@@ -179,6 +189,12 @@ export default function ManualCheckIn() {
 				<Card className="w-full max-w-lg">
 					<CardContent className="space-y-6 p-6">
 						<h2 className="text-xl font-semibold">Manual User Check-In</h2>
+
+						{isCheckInDisabled && (
+							<Alert variant="destructive">
+								Check-in is currently disabled. Please contact an administrator.
+							</Alert>
+						)}
 
 						<form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
 							{/* User Search Popover */}
@@ -300,7 +316,7 @@ export default function ManualCheckIn() {
 							<Button
 								type="submit"
 								className="w-full"
-								disabled={!selectedUserId || !selectedEventId || isSubmitting}
+								disabled={!selectedUserId || !selectedEventId || isSubmitting || isCheckInDisabled}
 							>
 								{isSubmitting ? "Checking In..." : "Check In User"}
 							</Button>

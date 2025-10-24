@@ -39,7 +39,7 @@
 		"framer-motion": "^12.23.0",
 		"jsqr": "^1.4.0",
 		"jwt-decode": "^4.0.0",
-		"lucide-react": "^0.546.0",
+		"lucide-react": "^0.547.0",
 		"luxon": "^3.4.4",
 		"minimatch": "^10.0.3",
 		"next": "15.5.6",

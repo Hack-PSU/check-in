@@ -696,7 +696,7 @@ const PhotoGalleryPage: React.FC = () => {
 		// Define preferred derivatives for each use case
 		// Prefers WebP for better compression (50-80% smaller than JPEG)
 		const preferenceMap = {
-			thumbnail: ['webp_480', 'jpeg_480', 'webp_960', 'jpeg_960'], // Grid view
+			thumbnail: ['webp_960', 'jpeg_960'], // Grid view
 			medium: ['webp_960', 'jpeg_960', 'webp_1600', 'jpeg_1600'],    // Slideshow
 			full: ['webp_1600', 'jpeg_1600', 'webp_960', 'jpeg_960']       // Full-screen viewer
 		};

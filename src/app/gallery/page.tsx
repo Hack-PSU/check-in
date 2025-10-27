@@ -49,6 +49,7 @@ const PhotoGalleryPage: React.FC = () => {
 	>([]);
 	const [cameraPreview, setCameraPreview] = useState<string | null>(null);
 	const [uploadProgress, setUploadProgress] = useState(false);
+	const [uploadProgressPercent, setUploadProgressPercent] = useState(0);
 	const [uploadStatus, setUploadStatus] = useState<{
 		[key: string]: "pending" | "uploading" | "success" | "error";
 	}>({});
@@ -295,33 +296,49 @@ const PhotoGalleryPage: React.FC = () => {
 		if (previewImages.length === 0) return;
 
 		setUploadProgress(true);
+		setUploadProgressPercent(0);
 		const newStatus: {
 			[key: string]: "pending" | "uploading" | "success" | "error";
 		} = {};
 
 		// Initialize status for all files
-		previewImages.forEach((item, index) => {
+		previewImages.forEach((_, index) => {
 			newStatus[index.toString()] = "pending";
 		});
 		setUploadStatus(newStatus);
 
 		let successCount = 0;
 		let errorCount = 0;
+		let completedCount = 0;
+		const totalFiles = previewImages.length;
 
-		// Upload files sequentially to avoid overwhelming the server
-		for (let i = 0; i < previewImages.length; i++) {
-			const item = previewImages[i];
+		// Parallel upload with concurrency limit (3 at a time)
+		const CONCURRENCY_LIMIT = 3;
 
+		const uploadFile = async (item: { file: File; preview: string }, index: number) => {
 			try {
-				setUploadStatus((prev) => ({ ...prev, [i.toString()]: "uploading" }));
+				setUploadStatus((prev) => ({ ...prev, [index.toString()]: "uploading" }));
+
 				await uploadMutation.mutateAsync(item.file);
-				setUploadStatus((prev) => ({ ...prev, [i.toString()]: "success" }));
+				setUploadStatus((prev) => ({ ...prev, [index.toString()]: "success" }));
 				successCount++;
 			} catch (error) {
-				setUploadStatus((prev) => ({ ...prev, [i.toString()]: "error" }));
+				setUploadStatus((prev) => ({ ...prev, [index.toString()]: "error" }));
 				errorCount++;
-				console.error(`Upload failed for file ${i}:`, error);
+				console.error(`Upload failed for file ${index}:`, error);
+			} finally {
+				completedCount++;
+				setUploadProgressPercent(Math.round((completedCount / totalFiles) * 100));
 			}
+		};
+
+		// Upload in batches with concurrency control
+		for (let i = 0; i < previewImages.length; i += CONCURRENCY_LIMIT) {
+			const batch = previewImages.slice(i, i + CONCURRENCY_LIMIT);
+			const batchPromises = batch.map((item, batchIndex) =>
+				uploadFile(item, i + batchIndex)
+			);
+			await Promise.all(batchPromises);
 		}
 
 		// Show final result
@@ -335,6 +352,7 @@ const PhotoGalleryPage: React.FC = () => {
 		// Clean up
 		setPreviewImages([]);
 		setUploadStatus({});
+		setUploadProgressPercent(0);
 		if (fileInputRef.current) {
 			fileInputRef.current.value = "";
 		}
@@ -639,13 +657,52 @@ const PhotoGalleryPage: React.FC = () => {
 		return /\.(mp4|mov|avi|wmv|flv|mkv|webm|m4v|mpg|mpeg|3gp)$/i.test(url);
 	};
 
-	// Lazy Image Component
+	/**
+	 * Get the best image URL based on use case
+	 * Note: This returns optimized derivatives for display.
+	 * Always use photo.url directly for downloads to get the original quality!
+	 *
+	 * @param photo - The photo entity with optional derivatives
+	 * @param useCase - thumbnail (480px), medium (960px), or full (1600px)
+	 * @returns Optimized image URL (WebP preferred) or original as fallback
+	 */
+	const getImageUrl = (photo: any, useCase: 'thumbnail' | 'medium' | 'full' = 'thumbnail') => {
+		if (!photo || isVideo(photo.url)) return photo?.url || '';
+
+		// If no derivatives, fallback to original
+		if (!photo.derivatives || Object.keys(photo.derivatives).length === 0) {
+			return photo.url;
+		}
+
+		// Define preferred derivatives for each use case
+		// Prefers WebP for better compression (50-80% smaller than JPEG)
+		const preferenceMap = {
+			thumbnail: ['webp_480', 'jpeg_480', 'webp_960', 'jpeg_960'], // Grid view
+			medium: ['webp_960', 'jpeg_960', 'webp_1600', 'jpeg_1600'],    // Slideshow
+			full: ['webp_1600', 'jpeg_1600', 'webp_960', 'jpeg_960']       // Full-screen viewer
+		};
+
+		const preferences = preferenceMap[useCase];
+
+		// Find the first available derivative
+		for (const key of preferences) {
+			if (photo.derivatives[key]) {
+				return photo.derivatives[key];
+			}
+		}
+
+		// Fallback to original if no derivatives match
+		return photo.url;
+	};
+
+	// Lazy Image Component with responsive image support
 	const LazyImage: React.FC<{
-		src: string;
+		photo: any; // PhotoEntity
 		alt: string;
 		className?: string;
 		onClick?: () => void;
-	}> = ({ src, alt, className, onClick }) => {
+		useCase?: 'thumbnail' | 'medium' | 'full';
+	}> = ({ photo, alt, className, onClick, useCase = 'thumbnail' }) => {
 		const [isLoaded, setIsLoaded] = useState(false);
 		const [isInView, setIsInView] = useState(false);
 		const imgRef = useRef<HTMLImageElement>(null);
@@ -658,7 +715,7 @@ const PhotoGalleryPage: React.FC = () => {
 						observer.disconnect();
 					}
 				},
-				{ threshold: 0.1 }
+				{ threshold: 0.1, rootMargin: '50px' } // Start loading 50px before visible
 			);
 
 			if (imgRef.current) {
@@ -667,6 +724,9 @@ const PhotoGalleryPage: React.FC = () => {
 
 			return () => observer.disconnect();
 		}, []);
+
+		// Get optimized image URL based on use case
+		const imageSrc = getImageUrl(photo, useCase);
 
 		return (
 			<div ref={imgRef} className={className} onClick={onClick}>
@@ -678,11 +738,13 @@ const PhotoGalleryPage: React.FC = () => {
 							</div>
 						)}
 						<img
-							src={src}
+							src={imageSrc}
 							alt={alt}
 							className={`w-full h-full object-cover ${isLoaded ? "opacity-100" : "opacity-0"} transition-opacity duration-300`}
 							onLoad={() => setIsLoaded(true)}
 							loading="lazy"
+							decoding="async"
+							fetchPriority={useCase === 'thumbnail' ? "low" : "high"}
 						/>
 					</>
 				)}
@@ -883,6 +945,22 @@ const PhotoGalleryPage: React.FC = () => {
 								))}
 							</div>
 
+							{/* Progress bar */}
+							{uploadProgress && (
+								<div className="mb-4">
+									<div className="flex justify-between text-sm mb-2">
+										<span>Uploading...</span>
+										<span className="font-semibold">{uploadProgressPercent}%</span>
+									</div>
+									<div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+										<div
+											className="bg-blue-600 h-full transition-all duration-300 ease-out"
+											style={{ width: `${uploadProgressPercent}%` }}
+										/>
+									</div>
+								</div>
+							)}
+
 							<div className="flex gap-2">
 								<Button
 									className="flex-1"
@@ -890,11 +968,16 @@ const PhotoGalleryPage: React.FC = () => {
 									disabled={uploadProgress}
 								>
 									{uploadProgress ? (
-										<Loader2 className="h-4 w-4 animate-spin mr-2" />
+										<>
+											<Loader2 className="h-4 w-4 animate-spin mr-2" />
+											Uploading {uploadProgressPercent}%
+										</>
 									) : (
-										<Upload className="h-4 w-4 mr-2" />
+										<>
+											<Upload className="h-4 w-4 mr-2" />
+											Upload All
+										</>
 									)}
-									Upload All
 								</Button>
 								<Button
 									variant="outline"
@@ -906,6 +989,7 @@ const PhotoGalleryPage: React.FC = () => {
 											fileInputRef.current.value = "";
 										}
 									}}
+									disabled={uploadProgress}
 								>
 									Cancel
 								</Button>
@@ -1170,22 +1254,25 @@ const PhotoGalleryPage: React.FC = () => {
 					/>
 				) : (
 					<img
-					src={displayPhotos[selectedPhotoIndex].url}
+					src={getImageUrl(displayPhotos[selectedPhotoIndex], 'full')}
 					alt={displayPhotos[selectedPhotoIndex].name}
 					className="max-w-[95vw] max-h-[85vh] object-contain rounded-lg shadow-lg"
+					loading="eager"
+					fetchPriority="high"
 					/>
 				)}
 
-				{/* Download button inside full-screen viewer */}
+				{/* Download button inside full-screen viewer - always downloads ORIGINAL */}
 				<button
 					onClick={(e) => {
 						e.stopPropagation();
+						// Always download the original, not the derivative
 						downloadMedia(
 							displayPhotos[selectedPhotoIndex].url,
 							displayPhotos[selectedPhotoIndex].name
 						);
 					}}
-					aria-label={`Download ${displayPhotos[selectedPhotoIndex].name}`}
+					aria-label={`Download original ${displayPhotos[selectedPhotoIndex].name}`}
 					className="absolute bottom-6 right-6 bg-black/40 text-white p-3 rounded-lg hover:bg-black/60 backdrop-blur z-50"
 				>
 					<Download className="h-5 w-5" />
@@ -1367,10 +1454,11 @@ const PhotoGalleryPage: React.FC = () => {
 								) : (
 									<>
 										<LazyImage
-											src={currentPhotos[0].url}
+											photo={currentPhotos[0]}
 											alt={currentPhotos[0].name}
 											className="w-full h-full object-contain rounded-lg cursor-pointer"
 											onClick={() => setSelectedPhotoIndex(startIndex)}
+											useCase="medium"
 										/>
 										<button
 											onClick={(e) => {
@@ -1469,9 +1557,10 @@ const PhotoGalleryPage: React.FC = () => {
 										</div>
 									) : (
 										<LazyImage
-											src={photo.url}
+											photo={photo}
 											alt={photo.name}
 											className="w-full h-full"
+											useCase="thumbnail"
 										/>
 									)}
 								</div>

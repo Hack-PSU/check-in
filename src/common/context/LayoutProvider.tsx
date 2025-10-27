@@ -9,6 +9,8 @@ const queryClient = new QueryClient({
 	defaultOptions: {
 		queries: {
 			retry: false,
+			refetchOnWindowFocus: false,
+			staleTime: 30000, // Consider data fresh for 30 seconds
 		},
 	},
 });

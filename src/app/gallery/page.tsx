@@ -1,7 +1,6 @@
 "use client";
 
-import type React from "react";
-import { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useGetAllPhotos, useGetPendingPhotos, useUploadPhoto, useApprovePhoto, useRejectPhoto } from "@/common/api/photos";
 import { useUser } from "@/common/api/user";
 import { useOrganizer } from "@/common/api/organizer";
@@ -9,6 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Toaster, toast } from "sonner";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
 import {
 	ChevronLeft,
 	ChevronRight,
@@ -30,19 +36,50 @@ import {
 	Check,
 	XCircle,
 	Clock,
+	Globe,
+	RefreshCw,
 } from "lucide-react";
 
-const PHOTOS_PER_PAGE = 10;
+const PHOTOS_PER_LOAD = 25; // Number of photos to load per batch
+const PREFETCH_THRESHOLD = 10; // Start loading more when this many items from the end
 
 type TabType = "approved" | "pending" | "rejected";
 
+/**
+ * Extract file type from photo filename
+ * Expected format: ${userId}_${fileType}_${uuid}.${extension}
+ * Returns null if format is broken or doesn't match expected pattern
+ */
+const extractFileType = (filename: string): string | null => {
+	try {
+		// Remove extension first
+		const nameWithoutExt = filename.split('.')[0];
+
+		// Split by underscore
+		const parts = nameWithoutExt.split('_');
+
+		// Should have at least 3 parts: userId, fileType, uuid
+		if (parts.length >= 3) {
+			// File type is the second part
+			return parts[1];
+		}
+
+		return null;
+	} catch (error) {
+		console.warn('Failed to extract file type from filename:', filename, error);
+		return null;
+	}
+};
+
 const PhotoGalleryPage: React.FC = () => {
 	const [currentTab, setCurrentTab] = useState<TabType>("approved");
-	const [currentPage, setCurrentPage] = useState(1);
+	const [displayedCount, setDisplayedCount] = useState(PHOTOS_PER_LOAD);
 	const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number | null>(
 		null
 	);
 	const [viewMode, setViewMode] = useState<"grid" | "slideshow">("grid");
+	const [selectedFileType, setSelectedFileType] = useState<string | null>(null);
+	const [convertingPhotos, setConvertingPhotos] = useState<Set<string>>(new Set());
 	const [isCameraOpen, setIsCameraOpen] = useState(false);
 	const [previewImages, setPreviewImages] = useState<
 		{ file: File; preview: string }[]
@@ -70,6 +107,7 @@ const PhotoGalleryPage: React.FC = () => {
 	const videoRef = useRef<HTMLVideoElement>(null);
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const streamRef = useRef<MediaStream | null>(null);
+	const loadMoreObserverRef = useRef<HTMLDivElement>(null);
 
 	const { data: allPhotos, isLoading, error, refetch } = useGetAllPhotos();
 	const { data: pendingPhotos, isLoading: isPendingLoading, error: pendingError, refetch: refetchPending } = useGetPendingPhotos();
@@ -77,28 +115,101 @@ const PhotoGalleryPage: React.FC = () => {
 	const approveMutation = useApprovePhoto();
 	const rejectMutation = useRejectPhoto();
 
-	// Calculate pagination and filter photos based on current tab
+	// Calculate pagination and filter photos based on current tab and file type
 	const getPhotosForTab = (): typeof allPhotos => {
+		let photos: typeof allPhotos = [];
+
 		if (currentTab === "approved") {
-			return allPhotos?.filter(p => !p.approvalStatus || p.approvalStatus === "approved") || [];
+			photos = allPhotos?.filter(p => !p.approvalStatus || p.approvalStatus === "approved") || [];
 		} else if (currentTab === "pending") {
-			return pendingPhotos?.filter(p => p.approvalStatus === "pending") || [];
+			photos = pendingPhotos?.filter(p => p.approvalStatus === "pending") || [];
 		} else {
-			return pendingPhotos?.filter(p => p.approvalStatus === "rejected") || [];
+			photos = pendingPhotos?.filter(p => p.approvalStatus === "rejected") || [];
 		}
+
+		// Apply file type filter if selected
+		if (selectedFileType) {
+			photos = photos.filter(p => {
+				const fileType = extractFileType(p.name);
+				return fileType === selectedFileType;
+			});
+		}
+
+		return photos;
 	};
 
 	const displayPhotos = getPhotosForTab();
 	const totalPhotos = displayPhotos?.length || 0;
-	const totalPages = Math.ceil(totalPhotos / PHOTOS_PER_PAGE);
-	const startIndex = (currentPage - 1) * PHOTOS_PER_PAGE;
-	const endIndex = startIndex + PHOTOS_PER_PAGE;
-	const currentPhotos = displayPhotos?.slice(startIndex, endIndex) || [];
+	const currentPhotos = displayPhotos?.slice(0, displayedCount) || [];
+	const hasMore = displayedCount < totalPhotos;
 
-	// Reset to page 1 when changing tabs
+	// Extract unique file types from all photos in current tab
+	const availableFileTypes = useMemo(() => {
+		let photos: typeof allPhotos = [];
+
+		if (currentTab === "approved") {
+			photos = allPhotos?.filter(p => !p.approvalStatus || p.approvalStatus === "approved") || [];
+		} else if (currentTab === "pending") {
+			photos = pendingPhotos?.filter(p => p.approvalStatus === "pending") || [];
+		} else {
+			photos = pendingPhotos?.filter(p => p.approvalStatus === "rejected") || [];
+		}
+
+		const fileTypes = new Set<string>();
+		photos.forEach(photo => {
+			const fileType = extractFileType(photo.name);
+			if (fileType) {
+				fileTypes.add(fileType);
+			}
+		});
+
+		return Array.from(fileTypes).sort();
+	}, [currentTab, allPhotos, pendingPhotos]);
+
+	// Reset displayed count and file type filter when changing tabs
 	useEffect(() => {
-		setCurrentPage(1);
+		setDisplayedCount(PHOTOS_PER_LOAD);
+		setSelectedFileType(null);
 	}, [currentTab]);
+
+	// Reset displayed count when file type filter changes
+	useEffect(() => {
+		setDisplayedCount(PHOTOS_PER_LOAD);
+	}, [selectedFileType]);
+
+	// Load more photos
+	const loadMore = useCallback(() => {
+		if (hasMore) {
+			setDisplayedCount(prev => Math.min(prev + PHOTOS_PER_LOAD, totalPhotos));
+		}
+	}, [hasMore, totalPhotos]);
+
+	// Infinite scroll observer
+	useEffect(() => {
+		const observer = new IntersectionObserver(
+			(entries) => {
+				const [entry] = entries;
+				if (entry.isIntersecting && hasMore && !isLoading && !isPendingLoading) {
+					loadMore();
+				}
+			},
+			{
+				threshold: 0.1,
+				rootMargin: '200px', // Start loading 200px before reaching the end
+			}
+		);
+
+		const currentObserverRef = loadMoreObserverRef.current;
+		if (currentObserverRef) {
+			observer.observe(currentObserverRef);
+		}
+
+		return () => {
+			if (currentObserverRef) {
+				observer.unobserve(currentObserverRef);
+			}
+		};
+	}, [hasMore, loadMore, isLoading, isPendingLoading]);
 
 	// Handle keyboard navigation
 	useEffect(() => {
@@ -234,8 +345,7 @@ const PhotoGalleryPage: React.FC = () => {
 		try {
 			await approveMutation.mutateAsync(filename);
 			toast.success("Photo approved successfully!");
-			refetch();
-			refetchPending();
+			// No need to call refetch - optimistic updates handle this
 		} catch (error) {
 			toast.error("Failed to approve photo");
 			console.error(error);
@@ -246,11 +356,47 @@ const PhotoGalleryPage: React.FC = () => {
 		try {
 			await rejectMutation.mutateAsync(filename);
 			toast.success("Photo rejected successfully!");
-			refetch();
-			refetchPending();
+			// No need to call refetch - optimistic updates handle this
 		} catch (error) {
 			toast.error("Failed to reject photo");
 			console.error(error);
+		}
+	};
+
+	const handleConvertToPublic = async (photoUrl: string, filename: string) => {
+		try {
+			// Add to converting set
+			setConvertingPhotos(prev => new Set(prev).add(filename));
+
+			// Fetch the image as a blob
+			const response = await fetch(photoUrl);
+			if (!response.ok) throw new Error("Failed to fetch image");
+			const blob = await response.blob();
+
+			// Create a File object from the blob
+			const file = new File([blob], filename, { type: blob.type });
+
+			// Create FormData with the new fileType
+			const formData = new FormData();
+			formData.append("photo", file);
+			formData.append("fileType", "public");
+
+			// Upload with the new file type
+			await uploadMutation.mutateAsync(file);
+
+			toast.success("Photo converted to public successfully!");
+			refetch();
+			refetchPending();
+		} catch (error) {
+			toast.error("Failed to convert photo to public");
+			console.error(error);
+		} finally {
+			// Remove from converting set
+			setConvertingPhotos(prev => {
+				const newSet = new Set(prev);
+				newSet.delete(filename);
+				return newSet;
+			});
 		}
 	};
 
@@ -696,7 +842,7 @@ const PhotoGalleryPage: React.FC = () => {
 		// Define preferred derivatives for each use case
 		// Prefers WebP for better compression (50-80% smaller than JPEG)
 		const preferenceMap = {
-			thumbnail: ['webp_960', 'jpeg_960'], // Grid view
+			thumbnail: ['webp_1600', 'webp_960', 'jpeg_960'], // Grid view
 			medium: ['webp_960', 'jpeg_960', 'webp_1600', 'jpeg_1600'],    // Slideshow
 			full: ['webp_1600', 'jpeg_1600', 'webp_960', 'jpeg_960']       // Full-screen viewer
 		};
@@ -734,7 +880,7 @@ const PhotoGalleryPage: React.FC = () => {
 						observer.disconnect();
 					}
 				},
-				{ threshold: 0.1, rootMargin: '50px' } // Start loading 50px before visible
+				{ threshold: 0.1, rootMargin: '400px' } // Start loading 400px before visible for better prefetching
 			);
 
 			if (imgRef.current) {
@@ -883,6 +1029,55 @@ const PhotoGalleryPage: React.FC = () => {
 								</div>
 							</button>
 						</div>
+
+						{/* File Type Filter */}
+						{availableFileTypes.length > 0 && (
+							<div className="mt-3 flex gap-2 items-center">
+								<span className="text-sm text-gray-600 whitespace-nowrap">Filter by type:</span>
+								<Select
+									value={selectedFileType || "all"}
+									onValueChange={(value) => setSelectedFileType(value === "all" ? null : value)}
+								>
+									<SelectTrigger className="w-[180px]">
+										<SelectValue placeholder="Select type" />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="all">
+											All ({(() => {
+												let photos: typeof allPhotos = [];
+												if (currentTab === "approved") {
+													photos = allPhotos?.filter(p => !p.approvalStatus || p.approvalStatus === "approved") || [];
+												} else if (currentTab === "pending") {
+													photos = pendingPhotos?.filter(p => p.approvalStatus === "pending") || [];
+												} else {
+													photos = pendingPhotos?.filter(p => p.approvalStatus === "rejected") || [];
+												}
+												return photos.length;
+											})()})
+										</SelectItem>
+										{availableFileTypes.map((fileType) => {
+											const count = (() => {
+												let photos: typeof allPhotos = [];
+												if (currentTab === "approved") {
+													photos = allPhotos?.filter(p => !p.approvalStatus || p.approvalStatus === "approved") || [];
+												} else if (currentTab === "pending") {
+													photos = pendingPhotos?.filter(p => p.approvalStatus === "pending") || [];
+												} else {
+													photos = pendingPhotos?.filter(p => p.approvalStatus === "rejected") || [];
+												}
+												return photos.filter(p => extractFileType(p.name) === fileType).length;
+											})();
+
+											return (
+												<SelectItem key={fileType} value={fileType}>
+													{fileType} ({count})
+												</SelectItem>
+											);
+										})}
+									</SelectContent>
+								</Select>
+							</div>
+						)}
 					</div>
 				</div>
 			)}
@@ -1396,55 +1591,6 @@ const PhotoGalleryPage: React.FC = () => {
 
 			{/* Main Content */}
 			<div className="container mx-auto px-4 py-6 max-w-full overflow-x-hidden">
-				{/* Pagination */}
-				{totalPages > 1 && (
-					<div className="mb-6 flex justify-center items-center gap-2">
-						<Button
-							size="sm"
-							variant="outline"
-							onClick={() => setCurrentPage(currentPage - 1)}
-							disabled={currentPage === 1}
-						>
-							<ChevronLeft className="h-4 w-4" />
-						</Button>
-
-						<div className="flex gap-1">
-							{Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-								let pageNum;
-								if (totalPages <= 5) {
-									pageNum = i + 1;
-								} else if (currentPage <= 3) {
-									pageNum = i + 1;
-								} else if (currentPage >= totalPages - 2) {
-									pageNum = totalPages - 4 + i;
-								} else {
-									pageNum = currentPage - 2 + i;
-								}
-
-								return (
-									<Button
-										key={pageNum}
-										size="sm"
-										variant={currentPage === pageNum ? "default" : "outline"}
-										onClick={() => setCurrentPage(pageNum)}
-										className="w-8"
-									>
-										{pageNum}
-									</Button>
-								);
-							})}
-						</div>
-
-						<Button
-							size="sm"
-							variant="outline"
-							onClick={() => setCurrentPage(currentPage + 1)}
-							disabled={currentPage === totalPages}
-						>
-							<ChevronRight className="h-4 w-4" />
-						</Button>
-					</div>
-				)}
 
 				{/* Slideshow Mode */}
 				{viewMode === "slideshow" && currentPhotos.length > 0 && (
@@ -1476,7 +1622,7 @@ const PhotoGalleryPage: React.FC = () => {
 											photo={currentPhotos[0]}
 											alt={currentPhotos[0].name}
 											className="w-full h-full object-contain rounded-lg cursor-pointer"
-											onClick={() => setSelectedPhotoIndex(startIndex)}
+											onClick={() => setSelectedPhotoIndex(0)}
 											useCase="medium"
 										/>
 										<button
@@ -1558,7 +1704,7 @@ const PhotoGalleryPage: React.FC = () => {
 							>
 								<div
 									className="w-full h-full cursor-pointer"
-									onClick={() => setSelectedPhotoIndex(startIndex + index)}
+									onClick={() => setSelectedPhotoIndex(index)}
 								>
 									{isVideo(photo.url) ? (
 										<div className="relative w-full h-full bg-gray-100">
@@ -1584,40 +1730,85 @@ const PhotoGalleryPage: React.FC = () => {
 									)}
 								</div>
 
-								{/* User name label - shows on hover */}
+								{/* User name label and file type badge - shows on hover */}
 								<div className="absolute top-0 left-0 right-0 p-2 bg-gradient-to-b from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
-									<div className="text-white text-xs font-medium">
-										{photo.uploadedBy ? <UserNameDisplay userId={photo.uploadedBy} /> : "Unknown User"}
+									<div className="flex items-center justify-between">
+										<div className="text-white text-xs font-medium">
+											{photo.uploadedBy ? <UserNameDisplay userId={photo.uploadedBy} /> : "Unknown User"}
+										</div>
+										{(() => {
+											const fileType = extractFileType(photo.name);
+											if (fileType && fileType !== "public") {
+												return (
+													<span className="bg-yellow-500/90 text-white text-xs px-2 py-0.5 rounded-full">
+														{fileType}
+													</span>
+												);
+											}
+											return null;
+										})()}
 									</div>
 								</div>
 
 								{/* Admin controls for approved photos */}
 								{currentTab === "approved" && (
 									<div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
-										<div className="flex gap-2">
-											<button
-												onClick={(e) => {
-													e.stopPropagation();
-													downloadMedia(photo.url, photo.name);
-												}}
-												aria-label={`Download ${photo.name}`}
-												className="flex-1 bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-lg backdrop-blur text-xs flex items-center justify-center gap-1"
-											>
-												<Download className="h-3 w-3" />
-												Download
-											</button>
-											<Button
-												size="sm"
-												onClick={(e) => {
-													e.stopPropagation();
-													handleReject(photo.name);
-												}}
-												className="flex-1 bg-red-600 hover:bg-red-700 text-white h-8 text-xs"
-												disabled={rejectMutation.isPending}
-											>
-												<XCircle className="h-3 w-3 mr-1" />
-												Reject
-											</Button>
+										<div className="flex flex-col gap-1">
+											<div className="flex gap-2">
+												<button
+													onClick={(e) => {
+														e.stopPropagation();
+														downloadMedia(photo.url, photo.name);
+													}}
+													aria-label={`Download ${photo.name}`}
+													className="flex-1 bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-lg backdrop-blur text-xs flex items-center justify-center gap-1"
+												>
+													<Download className="h-3 w-3" />
+													Download
+												</button>
+												<Button
+													size="sm"
+													onClick={(e) => {
+														e.stopPropagation();
+														handleReject(photo.name);
+													}}
+													className="flex-1 bg-red-600 hover:bg-red-700 text-white h-8 text-xs"
+													disabled={rejectMutation.isPending}
+												>
+													<XCircle className="h-3 w-3 mr-1" />
+													Reject
+												</Button>
+											</div>
+											{(() => {
+												const fileType = extractFileType(photo.name);
+												const isConverting = convertingPhotos.has(photo.name);
+												if (fileType && fileType !== "public") {
+													return (
+														<Button
+															size="sm"
+															onClick={(e) => {
+																e.stopPropagation();
+																handleConvertToPublic(photo.url, photo.name);
+															}}
+															className="w-full bg-green-600 hover:bg-green-700 text-white h-8 text-xs"
+															disabled={isConverting}
+														>
+															{isConverting ? (
+																<>
+																	<Loader2 className="h-3 w-3 mr-1 animate-spin" />
+																	Converting...
+																</>
+															) : (
+																<>
+																	<Globe className="h-3 w-3 mr-1" />
+																	Make Public
+																</>
+															)}
+														</Button>
+													);
+												}
+												return null;
+											})()}
 										</div>
 									</div>
 								)}
@@ -1625,9 +1816,37 @@ const PhotoGalleryPage: React.FC = () => {
 								{/* Admin controls for pending and rejected photos */}
 								{(currentTab === "pending" || currentTab === "rejected") && (
 									<div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
-										<div className="flex gap-2">
-											{currentTab === "pending" && (
-												<>
+										<div className="flex flex-col gap-1">
+											<div className="flex gap-2">
+												{currentTab === "pending" && (
+													<>
+														<Button
+															size="sm"
+															onClick={(e) => {
+																e.stopPropagation();
+																handleApprove(photo.name);
+															}}
+															className="flex-1 bg-green-600 hover:bg-green-700 text-white h-8 text-xs"
+															disabled={approveMutation.isPending}
+														>
+															<Check className="h-3 w-3 mr-1" />
+															Approve
+														</Button>
+														<Button
+															size="sm"
+															onClick={(e) => {
+																e.stopPropagation();
+																handleReject(photo.name);
+															}}
+															className="flex-1 bg-red-600 hover:bg-red-700 text-white h-8 text-xs"
+															disabled={rejectMutation.isPending}
+														>
+															<X className="h-3 w-3 mr-1" />
+															Reject
+														</Button>
+													</>
+												)}
+												{currentTab === "rejected" && (
 													<Button
 														size="sm"
 														onClick={(e) => {
@@ -1640,34 +1859,38 @@ const PhotoGalleryPage: React.FC = () => {
 														<Check className="h-3 w-3 mr-1" />
 														Approve
 													</Button>
-													<Button
-														size="sm"
-														onClick={(e) => {
-															e.stopPropagation();
-															handleReject(photo.name);
-														}}
-														className="flex-1 bg-red-600 hover:bg-red-700 text-white h-8 text-xs"
-														disabled={rejectMutation.isPending}
-													>
-														<X className="h-3 w-3 mr-1" />
-														Reject
-													</Button>
-												</>
-											)}
-											{currentTab === "rejected" && (
-												<Button
-													size="sm"
-													onClick={(e) => {
-														e.stopPropagation();
-														handleApprove(photo.name);
-													}}
-													className="flex-1 bg-green-600 hover:bg-green-700 text-white h-8 text-xs"
-													disabled={approveMutation.isPending}
-												>
-													<Check className="h-3 w-3 mr-1" />
-													Approve
-												</Button>
-											)}
+												)}
+											</div>
+											{(() => {
+												const fileType = extractFileType(photo.name);
+												const isConverting = convertingPhotos.has(photo.name);
+												if (fileType && fileType !== "public") {
+													return (
+														<Button
+															size="sm"
+															onClick={(e) => {
+																e.stopPropagation();
+																handleConvertToPublic(photo.url, photo.name);
+															}}
+															className="w-full bg-purple-600 hover:bg-purple-700 text-white h-8 text-xs"
+															disabled={isConverting}
+														>
+															{isConverting ? (
+																<>
+																	<Loader2 className="h-3 w-3 mr-1 animate-spin" />
+																	Converting...
+																</>
+															) : (
+																<>
+																	<Globe className="h-3 w-3 mr-1" />
+																	Make Public
+																</>
+															)}
+														</Button>
+													);
+												}
+												return null;
+											})()}
 										</div>
 									</div>
 								)}
@@ -1715,6 +1938,22 @@ const PhotoGalleryPage: React.FC = () => {
 							</div>
 						</CardContent>
 					</Card>
+				)}
+
+				{/* Infinite scroll trigger and loading indicator */}
+				{currentPhotos.length > 0 && (
+					<div ref={loadMoreObserverRef} className="flex justify-center py-8">
+						{hasMore ? (
+							<div className="flex flex-col items-center gap-2">
+								<Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+								<p className="text-sm text-gray-500">Loading more photos...</p>
+							</div>
+						) : (
+							<p className="text-sm text-gray-500">
+								All {totalPhotos} photo{totalPhotos !== 1 ? 's' : ''} loaded
+							</p>
+						)}
+					</div>
 				)}
 			</div>
 		</div>

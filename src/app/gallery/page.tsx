@@ -189,10 +189,11 @@ const PhotoGalleryPage: React.FC = () => {
 		return <>{fullName || userId}</>;
 	};
 
-	// Download helper: try to fetch as blob then trigger download; fallback opens in new tab
+	// Download helper: try to fetch as blob with CORS mode, fallback to direct download approach
 	const downloadMedia = async (url: string, filename?: string) => {
 		try {
-			const res = await fetch(url);
+			// Try fetching with CORS mode first
+			const res = await fetch(url, { mode: 'cors', credentials: 'omit' });
 			if (!res.ok) throw new Error("Network response was not ok");
 			const blob = await res.blob();
 			const objectUrl = URL.createObjectURL(blob);
@@ -204,10 +205,28 @@ const PhotoGalleryPage: React.FC = () => {
 			link.click();
 			link.remove();
 			URL.revokeObjectURL(objectUrl);
+			toast.success("Download started!");
 		} catch (err) {
-			console.warn("download failed, falling back to opening in new tab:", err);
-			window.open(url, "_blank", "noopener,noreferrer");
-			toast.error("Could not download directly. Opened in a new tab.");
+			console.warn("CORS fetch failed, trying direct download method:", err);
+			// Fallback: Create a hidden anchor with download attribute pointing directly to the URL
+			// This may work if the server sends proper Content-Disposition headers
+			try {
+				const link = document.createElement("a");
+				link.href = url;
+				link.download = filename || url.split("/").pop() || "download";
+				link.target = "_blank";
+				link.rel = "noopener noreferrer";
+				document.body.appendChild(link);
+				link.click();
+				document.body.removeChild(link);
+
+				// If we reach here without error, assume it worked
+				toast.success("Download started!");
+			} catch (directErr) {
+				console.warn("Direct download failed, opening in new tab:", directErr);
+				window.open(url, "_blank", "noopener,noreferrer");
+				toast.error("Could not download directly. Opened in a new tab.");
+			}
 		}
 	};
 

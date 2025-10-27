@@ -80,6 +80,18 @@ const PhotoGalleryPage: React.FC = () => {
 	const [viewMode, setViewMode] = useState<"grid" | "slideshow">("grid");
 	const [selectedFileType, setSelectedFileType] = useState<string | null>(null);
 	const [convertingPhotos, setConvertingPhotos] = useState<Set<string>>(new Set());
+
+	// Update URL params when slideshow mode changes to hide navbar
+	useEffect(() => {
+		const params = new URLSearchParams(window.location.search);
+		if (viewMode === "slideshow") {
+			params.set("hideNav", "true");
+		} else {
+			params.delete("hideNav");
+		}
+		const newUrl = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ''}`;
+		window.history.replaceState({}, '', newUrl);
+	}, [viewMode]);
 	const [isCameraOpen, setIsCameraOpen] = useState(false);
 	const [previewImages, setPreviewImages] = useState<
 		{ file: File; preview: string }[]
@@ -300,44 +312,23 @@ const PhotoGalleryPage: React.FC = () => {
 		return <>{fullName || userId}</>;
 	};
 
-	// Download helper: try to fetch as blob with CORS mode, fallback to direct download approach
+	// Download helper: use server-side proxy to bypass CORS
 	const downloadMedia = async (url: string, filename?: string) => {
 		try {
-			// Try fetching with CORS mode first
-			const res = await fetch(url, { mode: 'cors', credentials: 'omit' });
-			if (!res.ok) throw new Error("Network response was not ok");
-			const blob = await res.blob();
-			const objectUrl = URL.createObjectURL(blob);
+			// Use our proxy endpoint to download the file
+			const proxyUrl = `/api/download?url=${encodeURIComponent(url)}`;
 
 			const link = document.createElement("a");
-			link.href = objectUrl;
+			link.href = proxyUrl;
 			link.download = filename || url.split("/").pop() || "download";
 			document.body.appendChild(link);
 			link.click();
-			link.remove();
-			URL.revokeObjectURL(objectUrl);
+			document.body.removeChild(link);
+
 			toast.success("Download started!");
 		} catch (err) {
-			console.warn("CORS fetch failed, trying direct download method:", err);
-			// Fallback: Create a hidden anchor with download attribute pointing directly to the URL
-			// This may work if the server sends proper Content-Disposition headers
-			try {
-				const link = document.createElement("a");
-				link.href = url;
-				link.download = filename || url.split("/").pop() || "download";
-				link.target = "_blank";
-				link.rel = "noopener noreferrer";
-				document.body.appendChild(link);
-				link.click();
-				document.body.removeChild(link);
-
-				// If we reach here without error, assume it worked
-				toast.success("Download started!");
-			} catch (directErr) {
-				console.warn("Direct download failed, opening in new tab:", directErr);
-				window.open(url, "_blank", "noopener,noreferrer");
-				toast.error("Could not download directly. Opened in a new tab.");
-			}
+			console.error("Download failed:", err);
+			toast.error("Failed to download. Please try again.");
 		}
 	};
 

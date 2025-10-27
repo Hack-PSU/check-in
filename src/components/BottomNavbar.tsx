@@ -3,7 +3,7 @@
 import type React from "react";
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
 	QrCodeIcon,
 	GavelIcon,
@@ -40,12 +40,17 @@ export function BottomNav({ className }: { className?: string }) {
 	const { user, logout } = useFirebase();
 	const router = useRouter();
 	const path = usePathname();
+	const searchParams = useSearchParams();
 	const [activeTab, setActiveTab] = useState("Log Out");
 	const [openDropdown, setOpenDropdown] = useState<string | null>(null);
 	const containerRef = useRef<HTMLDivElement>(null);
 	const permission = 3; // bypass permission check for now
 
+	// Check if navbar should be hidden based on URL parameter
+	const shouldHide = searchParams.get("hideNav") === "true";
+
 	// Move all hooks to the top, before any conditional logic
+
 	// Close dropdown when clicking outside
 	useEffect(() => {
 		const handleClickOutside = (event: MouseEvent) => {
@@ -124,8 +129,8 @@ export function BottomNav({ className }: { className?: string }) {
 	}, [path, permission]);
 
 	// Early return after all hooks have been called
-	if (!permission) {
-		return null; // Don't render if permission is not available
+	if (!permission || shouldHide) {
+		return null; // Don't render if permission is not available or should be hidden
 	}
 
 	const items: NavItem[] = [

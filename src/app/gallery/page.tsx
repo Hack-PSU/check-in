@@ -477,8 +477,7 @@ const PhotoGalleryPage: React.FC = () => {
 		let completedCount = 0;
 		const totalFiles = previewImages.length;
 
-		// Parallel upload with concurrency limit (3 at a time)
-		const CONCURRENCY_LIMIT = 3;
+		const CONCURRENCY_LIMIT = 6;
 
 		const uploadFile = async (item: { file: File; preview: string }, index: number) => {
 			try {

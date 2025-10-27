@@ -17,10 +17,6 @@ export function useUploadPhoto(): UseMutationResult<
 
 	return useMutation({
 		mutationFn: uploadPhoto,
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["photos"] });
-			queryClient.invalidateQueries({ queryKey: ["photos", "pending"] });
-		},
 	});
 }
 

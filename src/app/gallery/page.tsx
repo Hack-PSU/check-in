@@ -367,13 +367,8 @@ const PhotoGalleryPage: React.FC = () => {
 			// Create a File object from the blob
 			const file = new File([blob], filename, { type: blob.type });
 
-			// Create FormData with the new fileType
-			const formData = new FormData();
-			formData.append("photo", file);
-			formData.append("fileType", "public");
-
-			// Upload with the new file type
-			await uploadMutation.mutateAsync(file);
+			// Upload with the new file type set to "public"
+			await uploadMutation.mutateAsync({ file, fileType: "public" });
 
 			toast.success("Photo converted to public successfully!");
 			refetch();
@@ -474,7 +469,7 @@ const PhotoGalleryPage: React.FC = () => {
 			try {
 				setUploadStatus((prev) => ({ ...prev, [index.toString()]: "uploading" }));
 
-				await uploadMutation.mutateAsync(item.file);
+				await uploadMutation.mutateAsync({ file: item.file });
 				setUploadStatus((prev) => ({ ...prev, [index.toString()]: "success" }));
 				successCount++;
 			} catch (error) {
@@ -796,7 +791,7 @@ const PhotoGalleryPage: React.FC = () => {
 				type: "image/jpeg",
 			});
 
-			await uploadMutation.mutateAsync(file);
+			await uploadMutation.mutateAsync({ file });
 			toast.success("Photo uploaded successfully!");
 			stopCamera();
 			refetch();

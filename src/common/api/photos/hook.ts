@@ -11,12 +11,16 @@ import { PhotoUploadResponse, PhotoEntity } from "./entity";
 export function useUploadPhoto(): UseMutationResult<
 	PhotoUploadResponse,
 	Error,
-	File
+	{ file: File; fileType?: string }
 > {
 	const queryClient = useQueryClient();
 
 	return useMutation({
-		mutationFn: uploadPhoto,
+		mutationFn: ({ file, fileType }) => uploadPhoto(file, fileType),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ["photos"] });
+			queryClient.invalidateQueries({ queryKey: ["photos", "pending"] });
+		},
 	});
 }
 

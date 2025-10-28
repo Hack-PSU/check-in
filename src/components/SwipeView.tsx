@@ -35,7 +35,6 @@ export const SwipeView: React.FC<SwipeViewProps> = ({
 	onMakePublic,
 	onExit,
 }) => {
-	const [currentIndex, setCurrentIndex] = useState(0);
 	const [exitDirection, setExitDirection] = useState<"left" | "right" | "up" | null>(null);
 	const x = useMotionValue(0);
 	const y = useMotionValue(0);
@@ -49,7 +48,8 @@ export const SwipeView: React.FC<SwipeViewProps> = ({
 	const rejectOpacity = useTransform(x, [-SWIPE_THRESHOLD, 0], [1, 0]);
 	const publicOpacity = useTransform(y, [-SWIPE_UP_THRESHOLD, 0], [1, 0]);
 
-	const currentPhoto = photos[currentIndex];
+	// Always show the first photo since optimistic updates remove photos from array
+	const currentPhoto = photos[0];
 
 	if (!currentPhoto) {
 		return (
@@ -62,7 +62,7 @@ export const SwipeView: React.FC<SwipeViewProps> = ({
 		);
 	}
 
-	const handleDragEnd = async (_event: any, info: PanInfo) => {
+	const handleDragEnd = (_event: any, info: PanInfo) => {
 		const offsetX = info.offset.x;
 		const offsetY = info.offset.y;
 		const velocityX = info.velocity.x;
@@ -71,9 +71,9 @@ export const SwipeView: React.FC<SwipeViewProps> = ({
 		// Check swipe up first (make public)
 		if (offsetY < -SWIPE_UP_THRESHOLD || velocityY < -500) {
 			setExitDirection("up");
-			await onMakePublic(currentPhoto.url, currentPhoto.name);
+			onMakePublic(currentPhoto.url, currentPhoto.name);
+			// Reset after animation - photo will be removed by optimistic update
 			setTimeout(() => {
-				setCurrentIndex((prev) => prev + 1);
 				setExitDirection(null);
 				x.set(0);
 				y.set(0);
@@ -82,9 +82,9 @@ export const SwipeView: React.FC<SwipeViewProps> = ({
 		// Check swipe right (approve)
 		else if (offsetX > SWIPE_THRESHOLD || velocityX > 500) {
 			setExitDirection("right");
-			await onApprove(currentPhoto.name);
+			onApprove(currentPhoto.name);
+			// Reset after animation - photo will be removed by optimistic update
 			setTimeout(() => {
-				setCurrentIndex((prev) => prev + 1);
 				setExitDirection(null);
 				x.set(0);
 				y.set(0);
@@ -93,9 +93,9 @@ export const SwipeView: React.FC<SwipeViewProps> = ({
 		// Check swipe left (reject)
 		else if (offsetX < -SWIPE_THRESHOLD || velocityX < -500) {
 			setExitDirection("left");
-			await onReject(currentPhoto.name);
+			onReject(currentPhoto.name);
+			// Reset after animation - photo will be removed by optimistic update
 			setTimeout(() => {
-				setCurrentIndex((prev) => prev + 1);
 				setExitDirection(null);
 				x.set(0);
 				y.set(0);
@@ -108,20 +108,20 @@ export const SwipeView: React.FC<SwipeViewProps> = ({
 		}
 	};
 
-	const handleButtonAction = async (action: "approve" | "reject" | "public") => {
+	const handleButtonAction = (action: "approve" | "reject" | "public") => {
 		if (action === "approve") {
 			setExitDirection("right");
-			await onApprove(currentPhoto.name);
+			onApprove(currentPhoto.name);
 		} else if (action === "reject") {
 			setExitDirection("left");
-			await onReject(currentPhoto.name);
+			onReject(currentPhoto.name);
 		} else if (action === "public") {
 			setExitDirection("up");
-			await onMakePublic(currentPhoto.url, currentPhoto.name);
+			onMakePublic(currentPhoto.url, currentPhoto.name);
 		}
 
+		// Reset after animation - photo will be removed by optimistic update
 		setTimeout(() => {
-			setCurrentIndex((prev) => prev + 1);
 			setExitDirection(null);
 			x.set(0);
 			y.set(0);
@@ -137,7 +137,7 @@ export const SwipeView: React.FC<SwipeViewProps> = ({
 						<ChevronLeft className="h-6 w-6" />
 					</Button>
 					<div className="text-sm font-medium">
-						{currentIndex + 1} / {photos.length}
+						{photos.length} remaining
 					</div>
 					<div className="w-10" /> {/* Spacer for centering */}
 				</div>
@@ -150,12 +150,12 @@ export const SwipeView: React.FC<SwipeViewProps> = ({
 
 			{/* Card Stack */}
 			<div className="absolute inset-0 flex items-center justify-center p-4">
-				{/* Show next card underneath */}
-				{photos[currentIndex + 1] && (
+				{/* Show next card underneath (second photo in array) */}
+				{photos[1] && (
 					<div className="absolute w-full max-w-md aspect-[3/4] rounded-2xl bg-card shadow-xl scale-95 opacity-50">
 						<div className="relative w-full h-full">
 							<Image
-								src={photos[currentIndex + 1].url}
+								src={photos[1].url}
 								alt="Next photo"
 								fill
 								className="object-cover rounded-2xl"

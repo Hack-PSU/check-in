@@ -38,7 +38,9 @@ import {
 	Clock,
 	Globe,
 	RefreshCw,
+	Heart,
 } from "lucide-react";
+import { SwipeView } from "@/components/SwipeView";
 
 const PHOTOS_PER_LOAD = 25; // Number of photos to load per batch
 const PREFETCH_THRESHOLD = 10; // Start loading more when this many items from the end
@@ -80,18 +82,19 @@ const PhotoGalleryPage: React.FC = () => {
 	const [viewMode, setViewMode] = useState<"grid" | "slideshow">("grid");
 	const [selectedFileType, setSelectedFileType] = useState<string | null>(null);
 	const [convertingPhotos, setConvertingPhotos] = useState<Set<string>>(new Set());
+	const [isSwipeMode, setIsSwipeMode] = useState(false);
 
-	// Update URL params when slideshow mode changes to hide navbar
+	// Update URL params when slideshow mode or swipe mode changes to hide navbar
 	useEffect(() => {
 		const params = new URLSearchParams(window.location.search);
-		if (viewMode === "slideshow") {
+		if (viewMode === "slideshow" || isSwipeMode) {
 			params.set("hideNav", "true");
 		} else {
 			params.delete("hideNav");
 		}
 		const newUrl = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ''}`;
 		window.history.replaceState({}, '', newUrl);
-	}, [viewMode]);
+	}, [viewMode, isSwipeMode]);
 	const [isCameraOpen, setIsCameraOpen] = useState(false);
 	const [previewImages, setPreviewImages] = useState<
 		{ file: File; preview: string }[]
@@ -929,6 +932,17 @@ const PhotoGalleryPage: React.FC = () => {
 		<div className="min-h-screen bg-gray-50 overflow-x-hidden">
 			<Toaster />
 
+			{/* Swipe Mode - Full screen overlay */}
+			{isSwipeMode && currentTab === "pending" && (
+				<SwipeView
+					photos={pendingPhotos?.filter(p => p.approvalStatus === "pending") || []}
+					onApprove={handleApprove}
+					onReject={handleReject}
+					onMakePublic={handleConvertToPublic}
+					onExit={() => setIsSwipeMode(false)}
+				/>
+			)}
+
 			{/* Header - Hidden when camera is open */}
 			{!isCameraOpen && (
 				<div className="sticky top-0 z-40 bg-white border-b overflow-x-hidden">
@@ -946,6 +960,17 @@ const PhotoGalleryPage: React.FC = () => {
 								>
 									<Grid className="h-4 w-4" />
 								</Button>
+								{currentTab === "pending" && (
+									<Button
+										size="sm"
+										variant="default"
+										onClick={() => setIsSwipeMode(true)}
+										className="bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600"
+									>
+										<Heart className="h-4 w-4 md:mr-2" />
+										<span className="hidden md:inline">Swipe Mode</span>
+									</Button>
+								)}
 								<Button size="sm" onClick={() => fileInputRef.current?.click()}>
 									<Upload className="h-4 w-4 md:mr-2" />
 									<span className="hidden md:inline">Upload</span>

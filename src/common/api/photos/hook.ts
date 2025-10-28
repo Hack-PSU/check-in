@@ -17,9 +17,25 @@ export function useUploadPhoto(): UseMutationResult<
 
 	return useMutation({
 		mutationFn: ({ file, fileType }) => uploadPhoto(file, fileType),
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["photos"] });
-			queryClient.invalidateQueries({ queryKey: ["photos", "pending"] });
+		onSuccess: (data) => {
+			// Optimistically add the new photo to pending cache
+			queryClient.setQueryData<PhotoEntity[]>(["photos", "pending"], (old) => {
+				if (!old) return old;
+				// Add the newly uploaded photo to the pending list
+				const newPhoto: PhotoEntity = {
+					name: data.photoId,
+					url: data.photoUrl,
+					createdAt: new Date().toISOString(),
+					approvalStatus: "pending",
+				};
+				return [newPhoto, ...old];
+			});
+
+			// Invalidate queries after a 5 second delay to fetch fresh data in background
+			setTimeout(() => {
+				queryClient.invalidateQueries({ queryKey: ["photos"] });
+				queryClient.invalidateQueries({ queryKey: ["photos", "pending"] });
+			}, 5000);
 		},
 	});
 }

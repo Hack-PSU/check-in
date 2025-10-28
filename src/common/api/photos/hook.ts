@@ -30,12 +30,7 @@ export function useUploadPhoto(): UseMutationResult<
 				};
 				return [newPhoto, ...old];
 			});
-
-			// Invalidate queries after a 5 second delay to fetch fresh data in background
-			setTimeout(() => {
-				queryClient.invalidateQueries({ queryKey: ["photos"] });
-				queryClient.invalidateQueries({ queryKey: ["photos", "pending"] });
-			}, 5000);
+			// Trust the upload response - no need to refetch
 		},
 	});
 }
@@ -75,19 +70,16 @@ export function useApprovePhoto(): UseMutationResult<
 			// Optimistically update both caches
 			queryClient.setQueryData<PhotoEntity[]>(["photos", "pending"], (old) => {
 				if (!old) return old;
-				return old.map(photo =>
-					photo.name === filename
-						? { ...photo, approvalStatus: "approved" }
-						: photo
-				);
+				// Remove from pending list immediately
+				return old.filter(photo => photo.name !== filename);
 			});
 
 			queryClient.setQueryData<PhotoEntity[]>(["photos"], (old) => {
 				if (!old) return old;
-				// Find the photo in pending and add it to approved
+				// Find the photo in pending and add it to the top of approved list
 				const pendingPhoto = previousPendingPhotos?.find(p => p.name === filename);
 				if (pendingPhoto) {
-					return [...old, { ...pendingPhoto, approvalStatus: "approved" }];
+					return [{ ...pendingPhoto, approvalStatus: "approved" }, ...old];
 				}
 				return old;
 			});
@@ -95,7 +87,7 @@ export function useApprovePhoto(): UseMutationResult<
 			return { previousAllPhotos, previousPendingPhotos };
 		},
 		onError: (_err, _filename, context) => {
-			// Rollback on error
+			// Rollback on error - restore previous state
 			if (context?.previousAllPhotos) {
 				queryClient.setQueryData(["photos"], context.previousAllPhotos);
 			}
@@ -103,12 +95,7 @@ export function useApprovePhoto(): UseMutationResult<
 				queryClient.setQueryData(["photos", "pending"], context.previousPendingPhotos);
 			}
 		},
-		onSettled: () => {
-			// Refetch in background to ensure data is in sync with server
-			// This won't interrupt the user's scroll position
-			queryClient.refetchQueries({ queryKey: ["photos"] });
-			queryClient.refetchQueries({ queryKey: ["photos", "pending"] });
-		},
+		// No onSettled - trust optimistic update unless error occurs
 	});
 }
 
@@ -133,11 +120,8 @@ export function useRejectPhoto(): UseMutationResult<
 			// Optimistically update both caches
 			queryClient.setQueryData<PhotoEntity[]>(["photos", "pending"], (old) => {
 				if (!old) return old;
-				return old.map(photo =>
-					photo.name === filename
-						? { ...photo, approvalStatus: "rejected" }
-						: photo
-				);
+				// Remove from pending list immediately
+				return old.filter(photo => photo.name !== filename);
 			});
 
 			// Remove from approved photos if it was there
@@ -149,7 +133,7 @@ export function useRejectPhoto(): UseMutationResult<
 			return { previousAllPhotos, previousPendingPhotos };
 		},
 		onError: (_err, _filename, context) => {
-			// Rollback on error
+			// Rollback on error - restore previous state
 			if (context?.previousAllPhotos) {
 				queryClient.setQueryData(["photos"], context.previousAllPhotos);
 			}
@@ -157,11 +141,6 @@ export function useRejectPhoto(): UseMutationResult<
 				queryClient.setQueryData(["photos", "pending"], context.previousPendingPhotos);
 			}
 		},
-		onSettled: () => {
-			// Refetch in background to ensure data is in sync with server
-			// This won't interrupt the user's scroll position
-			queryClient.refetchQueries({ queryKey: ["photos"] });
-			queryClient.refetchQueries({ queryKey: ["photos", "pending"] });
-		},
+		// No onSettled - trust optimistic update unless error occurs
 	});
 }

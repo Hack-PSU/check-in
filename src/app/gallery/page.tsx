@@ -335,58 +335,89 @@ const PhotoGalleryPage: React.FC = () => {
 		}
 	};
 
-	const handleApprove = async (filename: string) => {
-		try {
-			await approveMutation.mutateAsync(filename);
-			toast.success("Photo approved successfully!");
-			// No need to call refetch - optimistic updates handle this
-		} catch (error) {
-			toast.error("Failed to approve photo");
-			console.error(error);
-		}
+	const handleApprove = (filename: string) => {
+		// Fire-and-forget for instant UI update
+		approveMutation.mutate(filename, {
+			onSuccess: () => {
+				toast.success("Photo approved successfully!");
+			},
+			onError: (error) => {
+				toast.error("Failed to approve photo");
+				console.error(error);
+			},
+		});
 	};
 
-	const handleReject = async (filename: string) => {
-		try {
-			await rejectMutation.mutateAsync(filename);
-			toast.success("Photo rejected successfully!");
-			// No need to call refetch - optimistic updates handle this
-		} catch (error) {
-			toast.error("Failed to reject photo");
-			console.error(error);
-		}
+	const handleReject = (filename: string) => {
+		// Fire-and-forget for instant UI update
+		rejectMutation.mutate(filename, {
+			onSuccess: () => {
+				toast.success("Photo rejected successfully!");
+			},
+			onError: (error) => {
+				toast.error("Failed to reject photo");
+				console.error(error);
+			},
+		});
 	};
 
-	const handleConvertToPublic = async (photoUrl: string, filename: string) => {
-		try {
-			// Add to converting set
-			setConvertingPhotos(prev => new Set(prev).add(filename));
+	const handleConvertToPublic = (photoUrl: string, filename: string) => {
+		// Add to converting set
+		setConvertingPhotos(prev => new Set(prev).add(filename));
 
-			// Fetch the image as a blob
-			const response = await fetch(photoUrl);
-			if (!response.ok) throw new Error("Failed to fetch image");
-			const blob = await response.blob();
+		// Fetch and convert in background
+		fetch(photoUrl)
+			.then(response => {
+				if (!response.ok) throw new Error("Failed to fetch image");
+				return response.blob();
+			})
+			.then(blob => {
+				// Create a File object from the blob
+				const file = new File([blob], filename, { type: blob.type });
 
-			// Create a File object from the blob
-			const file = new File([blob], filename, { type: blob.type });
+				// Upload with the new file type set to "public"
+				uploadMutation.mutate(
+					{ file, fileType: "public" },
+					{
+						onSuccess: (data) => {
+							// Automatically approve the newly uploaded public photo
+							approveMutation.mutate(data.photoId, {
+								onSuccess: () => {
+									toast.success("Photo converted to public and approved!");
+								},
+								onError: (error) => {
+									toast.success("Photo converted to public (approval pending)");
+									console.error("Auto-approve failed:", error);
+								},
+							});
 
-			// Upload with the new file type set to "public"
-			await uploadMutation.mutateAsync({ file, fileType: "public" });
-
-			toast.success("Photo converted to public successfully!");
-			refetch();
-			refetchPending();
-		} catch (error) {
-			toast.error("Failed to convert photo to public");
-			console.error(error);
-		} finally {
-			// Remove from converting set
-			setConvertingPhotos(prev => {
-				const newSet = new Set(prev);
-				newSet.delete(filename);
-				return newSet;
+							setConvertingPhotos(prev => {
+								const newSet = new Set(prev);
+								newSet.delete(filename);
+								return newSet;
+							});
+						},
+						onError: (error) => {
+							toast.error("Failed to convert photo to public");
+							console.error(error);
+							setConvertingPhotos(prev => {
+								const newSet = new Set(prev);
+								newSet.delete(filename);
+								return newSet;
+							});
+						},
+					}
+				);
+			})
+			.catch(error => {
+				toast.error("Failed to fetch image for conversion");
+				console.error(error);
+				setConvertingPhotos(prev => {
+					const newSet = new Set(prev);
+					newSet.delete(filename);
+					return newSet;
+				});
 			});
-		}
 	};
 
 	const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {

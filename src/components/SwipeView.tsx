@@ -19,9 +19,9 @@ interface Photo {
 
 interface SwipeViewProps {
 	photos: Photo[];
-	onApprove: (filename: string) => Promise<void>;
-	onReject: (filename: string) => Promise<void>;
-	onMakePublic: (photoUrl: string, filename: string) => Promise<void>;
+	onApprove: (filename: string) => Promise<void> | void;
+	onReject: (filename: string) => Promise<void> | void;
+	onMakePublic: (photoUrl: string, filename: string) => Promise<void> | void;
 	onExit: () => void;
 }
 

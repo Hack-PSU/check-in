@@ -84,17 +84,17 @@ const PhotoGalleryPage: React.FC = () => {
 	const [convertingPhotos, setConvertingPhotos] = useState<Set<string>>(new Set());
 	const [isSwipeMode, setIsSwipeMode] = useState(false);
 
-	// Update URL params when slideshow mode or swipe mode changes to hide navbar
+	// Update URL params when slideshow mode, swipe mode, or photo viewer changes to hide navbar
 	useEffect(() => {
 		const params = new URLSearchParams(window.location.search);
-		if (viewMode === "slideshow" || isSwipeMode) {
+		if (viewMode === "slideshow" || isSwipeMode || selectedPhotoIndex !== null) {
 			params.set("hideNav", "true");
 		} else {
 			params.delete("hideNav");
 		}
 		const newUrl = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ''}`;
 		window.history.replaceState({}, '', newUrl);
-	}, [viewMode, isSwipeMode]);
+	}, [viewMode, isSwipeMode, selectedPhotoIndex]);
 	const [isCameraOpen, setIsCameraOpen] = useState(false);
 	const [previewImages, setPreviewImages] = useState<
 		{ file: File; preview: string }[]

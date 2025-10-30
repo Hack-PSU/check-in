@@ -61,6 +61,12 @@ export default function AdminReservations() {
 	const [deleteModalOpen, setDeleteModalOpen] = useState(false);
 	const [selectedReservation, setSelectedReservation] =
 		useState<ReservationEntity | null>(null);
+	const [cellModalOpen, setCellModalOpen] = useState(false);
+	const [selectedCellReservations, setSelectedCellReservations] = useState<ReservationEntity[]>([]);
+	const [selectedCellInfo, setSelectedCellInfo] = useState<{
+		locationName: string;
+		timeSlot: string;
+	} | null>(null);
 	const [sortField, setSortField] = useState<SortField>("startTime");
 	const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
 	const [typeFilter, setTypeFilter] = useState<string>("all");
@@ -141,12 +147,12 @@ export default function AdminReservations() {
 	// Helper function to get hackathon date range
 	const getHackathonDateRange = useCallback(() => {
 		if (!activeHackathon?.startTime || !activeHackathon?.endTime) {
-			return { dates: [], startDate: null, endDate: null };
+			return { dates: [] as string[], startDate: null, endDate: null };
 		}
 
 		const startDate = new Date(activeHackathon.startTime);
 		const endDate = new Date(activeHackathon.endTime);
-		const dates = [];
+		const dates: string[] = [];
 		
 		const current = new Date(startDate);
 		current.setHours(0, 0, 0, 0);
@@ -304,17 +310,33 @@ export default function AdminReservations() {
 			);
 		}, [selectedDate, filteredReservations, activeHackathon]);
 
-		// Get reservation for specific location and time slot
-		const getReservationForSlot = (locationId: number, hour: number) => {
+		// Get all reservations for specific location and time slot
+		const getReservationsForSlot = (locationId: number, hour: number) => {
 			const [year, month, day] = selectedDate.split('-').map(Number);
 			const slotStart = new Date(year, month - 1, day, hour, 0, 0, 0).getTime();
 			const slotEnd = slotStart + (60 * 60 * 1000); // 1 hour later
 
-			return dayReservations.find(reservation => 
+			return dayReservations.filter(reservation => 
 				reservation.locationId === locationId &&
 				reservation.startTime < slotEnd &&
 				reservation.endTime > slotStart
 			);
+		};
+
+		const handleCellClick = (locationId: number, hour: number) => {
+			const reservations = getReservationsForSlot(locationId, hour);
+			const location = locations.find(l => l.id === locationId);
+			const timeDisplay = new Date(2025, 0, 1, hour).toLocaleTimeString('en-US', { 
+				hour: 'numeric', 
+				hour12: true 
+			});
+
+			setSelectedCellReservations(reservations);
+			setSelectedCellInfo({
+				locationName: location?.name || `Location ${locationId}`,
+				timeSlot: timeDisplay
+			});
+			setCellModalOpen(true);
 		};
 
 		return (
@@ -338,44 +360,34 @@ export default function AdminReservations() {
 								{location.name}
 							</div>
 							{timeSlots.map(slot => {
-								const reservation = getReservationForSlot(location.id, slot.hour);
+								const reservations = getReservationsForSlot(location.id, slot.hour);
+								const reservationCount = reservations.length;
+								const capacity = location.capacity;
+								const hasReservations = reservationCount > 0;
+								const isOverCapacity = reservationCount > capacity;
+
 								return (
 									<div 
 										key={slot.hour} 
-										className={`min-h-[40px] p-1 rounded border text-xs ${
-											reservation 
-												? reservation.reservationType === 'ADMIN'
-													? 'bg-purple-100 border-purple-300'
-													: 'bg-blue-100 border-blue-300'
-												: 'bg-gray-50 border-gray-200'
+										className={`min-h-[40px] p-2 rounded border text-xs cursor-pointer hover:opacity-80 transition-opacity flex items-center justify-center ${
+											isOverCapacity
+												? 'bg-red-100 border-red-300 text-red-800'
+												: hasReservations 
+													? 'bg-blue-100 border-blue-300 text-blue-800'
+													: 'bg-gray-50 border-gray-200 text-gray-600'
 										}`}
+										onClick={() => handleCellClick(location.id, slot.hour)}
 									>
-										{reservation && (
-											<div className="space-y-1">
-												<div className="font-medium truncate">
-													{getTeamName(reservation.teamId)}
-												</div>
-												<div className="text-xs text-muted-foreground">
-													{new Date(reservation.startTime).toLocaleTimeString('en-US', {
-														hour: 'numeric',
-														minute: '2-digit',
-														hour12: true
-													})} - {new Date(reservation.endTime).toLocaleTimeString('en-US', {
-														hour: 'numeric',
-														minute: '2-digit',
-														hour12: true
-													})}
-												</div>
-												<Button
-													size="sm"
-													variant="outline"
-													onClick={() => openDeleteModal(reservation)}
-													className="h-5 w-5 p-0 text-destructive hover:text-destructive"
-												>
-													<Trash2 className="h-3 w-3" />
-												</Button>
+										<div className="text-center">
+											<div className="font-medium">
+												{reservationCount}/{capacity}
 											</div>
-										)}
+											{hasReservations && (
+												<div className="text-xs mt-1 opacity-75">
+													{reservationCount === 1 ? '1 res' : `${reservationCount} res`}
+												</div>
+											)}
+										</div>
 									</div>
 								);
 							})}
@@ -1073,6 +1085,82 @@ export default function AdminReservations() {
 									Delete
 								</>
 							)}
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+
+			{/* Cell Reservations Modal */}
+			<Dialog open={cellModalOpen} onOpenChange={setCellModalOpen}>
+				<DialogContent className="sm:max-w-lg">
+					<DialogHeader>
+						<DialogTitle>Reservations for {selectedCellInfo?.locationName}</DialogTitle>
+						<DialogDescription>
+							{selectedCellInfo?.timeSlot} - {selectedCellReservations.length} reservation{selectedCellReservations.length !== 1 ? 's' : ''}
+						</DialogDescription>
+					</DialogHeader>
+					<div className="space-y-4 py-4 max-h-[400px] overflow-y-auto">
+						{selectedCellReservations.length === 0 ? (
+							<div className="text-center text-muted-foreground py-8">
+								No reservations for this time slot
+							</div>
+						) : (
+							selectedCellReservations.map((reservation) => (
+								<div key={reservation.id} className="border rounded-lg p-4 space-y-2">
+									<div className="flex items-center justify-between">
+										<div className="flex items-center gap-2">
+											<Users className="h-4 w-4 text-muted-foreground" />
+											<span className="font-medium">
+												{getTeamName(reservation.teamId)}
+											</span>
+										</div>
+										<Badge
+											variant={
+												reservation.reservationType === ReservationType.ADMIN
+													? "default"
+													: "secondary"
+											}
+											className={
+												reservation.reservationType === ReservationType.ADMIN
+													? "bg-purple-100 text-purple-800"
+													: "bg-blue-100 text-blue-800"
+											}
+										>
+											{reservation.reservationType === ReservationType.ADMIN
+												? "Admin"
+												: "Participant"}
+										</Badge>
+									</div>
+									<div className="flex items-center gap-2 text-sm text-muted-foreground">
+										<Clock className="h-3 w-3" />
+										<span>
+											{formatTimestamp(reservation.startTime)} - {formatTimestamp(reservation.endTime)}
+										</span>
+									</div>
+									<div className="flex justify-end">
+										<Button
+											size="sm"
+											variant="outline"
+											onClick={() => {
+												openDeleteModal(reservation);
+												setCellModalOpen(false);
+											}}
+											className="text-destructive hover:text-destructive"
+										>
+											<Trash2 className="h-4 w-4 mr-2" />
+											Delete
+										</Button>
+									</div>
+								</div>
+							))
+						)}
+					</div>
+					<DialogFooter>
+						<Button
+							variant="outline"
+							onClick={() => setCellModalOpen(false)}
+						>
+							Close
 						</Button>
 					</DialogFooter>
 				</DialogContent>

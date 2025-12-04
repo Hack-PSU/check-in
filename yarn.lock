@@ -2410,13 +2410,6 @@
   resolved "https://registry.yarnpkg.com/@popperjs/core/-/core-2.11.8.tgz#6b79032e760a0899cd4204710beede972a3a185f"
   integrity sha512-P1st0aksCrn9sGZhp8GMYwBnQsbvAWsZAX44oXNNvLHGqAOcoVxmjZiohstwQ7SqKnbR47akdNi+uleWD8+g6A==
 
-"@posthog/core@1.7.0":
-  version "1.7.0"
-  resolved "https://registry.yarnpkg.com/@posthog/core/-/core-1.7.0.tgz#e078dcc4ae7061bea0dcff90b5c8104dda6aefd7"
-  integrity sha512-d6ZV4grpzeH/6/LP8quMVpSjY1puRkrqfwcPvGRKUAX7tb7YHyp/zMiTDuJmOFbpUxAMBXH5nDwcPiyCY2WGzA==
-  dependencies:
-    cross-spawn "^7.0.6"
-
 "@posthog/core@1.7.1":
   version "1.7.1"
   resolved "https://registry.yarnpkg.com/@posthog/core/-/core-1.7.1.tgz#ec45a3b13acbe4fbf453625c83bcd38da21beeb7"
@@ -7348,11 +7341,11 @@ posthog-js@^1.257.0:
     web-vitals "^4.2.4"
 
 posthog-node@^5.5.1:
-  version "5.17.0"
-  resolved "https://registry.yarnpkg.com/posthog-node/-/posthog-node-5.17.0.tgz#cd384afb0bb07115d8b708f83e69bf5f54d549c3"
-  integrity sha512-M+ftj0kLJk6wVF1xW5cStSany0LBC6YDVO7RPma2poo+PrpeiTk+ovhqcIqWAySDdTcBHJfBV9aIFYWPl2y6kg==
+  version "5.17.2"
+  resolved "https://registry.yarnpkg.com/posthog-node/-/posthog-node-5.17.2.tgz#9d990d929c755937219ac50d2ad2ef7709a30a1b"
+  integrity sha512-lz3YJOr0Nmiz0yHASaINEDHqoV+0bC3eD8aZAG+Ky292dAnVYul+ga/dMX8KCBXg8hHfKdxw0SztYD5j6dgUqQ==
   dependencies:
-    "@posthog/core" "1.7.0"
+    "@posthog/core" "1.7.1"
 
 preact@^10.19.3:
   version "10.28.0"

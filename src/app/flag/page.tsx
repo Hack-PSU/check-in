@@ -175,14 +175,40 @@ export default function FlagManagement() {
 								</div>
 							) : (
 								<div className="divide-y">
-									{flags.map((flag, index) => (
+									{flags.map((flag) => (
 										<div key={flag.name} className="p-4 sm:p-6">
 											<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
 												<div className="flex-1 min-w-0">
 													<div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
-														<h4 className="font-medium text-base sm:text-lg truncate pr-2">
-															{flag.name}
-														</h4>
+														<div className="inline-flex items-center gap-1 min-w-0">
+															<h4 className="font-medium text-base sm:text-lg truncate">
+																{flag.name}
+															</h4>
+															{flag.description && (
+																<div className="group relative inline-flex shrink-0">
+																	<svg
+																		xmlns="http://www.w3.org/2000/svg"
+																		width="18"
+																		height="18"
+																		viewBox="0 0 24 24"
+																		fill="none"
+																		stroke="currentColor"
+																		strokeWidth="2"
+																		strokeLinecap="round"
+																		strokeLinejoin="round"
+																		className="text-zinc-400 hover:text-blue-500 cursor-help"
+																	>
+																		<circle cx="12" cy="12" r="10" />
+																		<path d="M12 16v-4" />
+																		<path d="M12 8h.01" />
+																	</svg>
+																	<div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 hidden w-48 p-2 bg-zinc-800 text-white text-xs rounded shadow-lg group-hover:block z-50 pointer-events-none">
+																		{flag.description}
+																		<div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-zinc-800"></div>
+																	</div>
+																</div>
+															)}
+														</div>
 														<Badge
 															variant={flag.isEnabled ? "default" : "secondary"}
 															className={`w-fit ${flag.isEnabled ? "bg-green-100 text-green-800" : ""}`}

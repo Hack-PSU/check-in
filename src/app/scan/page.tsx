@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Alert } from "@/components/ui/alert";
-import { Toaster, toast } from "sonner";
+import { toast } from "sonner";
 
 const ScanPage: React.FC = () => {
 	const videoRef = useRef<HTMLVideoElement>(null);
@@ -187,9 +187,7 @@ const ScanPage: React.FC = () => {
 	const isCheckInDisabled = !checkInFlag?.isEnabled;
 
 	return (
-		<>
-			<Toaster position="bottom-right" richColors />
-			<div className="container max-w-md mx-auto py-8 pb-24">
+		<div className="container max-w-md mx-auto py-8 pb-24">
 				<h1 className="text-2xl font-bold text-center mb-6">QR Code Scanner</h1>
 
 				{isCheckInDisabled && (
@@ -321,7 +319,6 @@ const ScanPage: React.FC = () => {
 					</div>
 				</div>
 			</div>
-		</>
 	);
 };
 

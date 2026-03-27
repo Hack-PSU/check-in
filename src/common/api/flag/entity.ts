@@ -1,6 +1,7 @@
 export interface FlagEntity {
 	name: string;
 	isEnabled: boolean;
+	description?: string;
 }
 
 export interface ActivateFlagBody {

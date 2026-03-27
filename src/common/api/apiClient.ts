@@ -59,6 +59,22 @@ export async function apiFetch<T>(
 		return {} as T;
 	}
 
+	// Check if response has a body
+	const contentLength = response.headers.get("Content-Length");
+	if (contentLength === "0" || response.status === 201 || response.status === 202) {
+		// Handle empty responses (common for POST/PUT/DELETE operations)
+		const text = await response.text();
+		if (!text || text.trim() === "") {
+			return {} as T;
+		}
+		// If there is text, try to parse as JSON
+		try {
+			return JSON.parse(text) as T;
+		} catch {
+			return text as unknown as T;
+		}
+	}
+
 	// Auto-detect response type by content-type
 	const contentType = response.headers.get("Content-Type") || "";
 	if (!contentType.includes("application/json")) {

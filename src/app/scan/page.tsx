@@ -38,7 +38,7 @@ const ScanPage: React.FC = () => {
 		isError: eventsError,
 	} = useAllEvents();
 	const { data: hackathonData } = useActiveHackathonForStatic();
-	const { mutate: checkInMutate } = useCheckInEvent();
+	const { mutate: checkInMutate, isPending: isCheckInPending } = useCheckInEvent();
 	const { data: checkInFlag, isLoading: flagLoading } = useFlagState("CheckIn");
 
 	// Start camera
@@ -79,6 +79,7 @@ const ScanPage: React.FC = () => {
 
 	const handleCheckIn = useCallback(
 		(scannedUserId: string) => {
+			if (isCheckInPending) return;
 			if (!user) return void logout();
 			if (!selectedEvent) return void toast.error("Please select an event");
 			if (!hackathonData) return void toast.error("No active hackathon found");
@@ -123,7 +124,7 @@ const ScanPage: React.FC = () => {
 				}
 			);
 		},
-		[user, selectedEvent, hackathonData, checkInMutate, logout, eventsData, checkInFlag]
+		[user, selectedEvent, hackathonData, checkInMutate, logout, eventsData, checkInFlag, isCheckInPending]
 	);
 
 	const captureAndScanImage = useCallback(async () => {

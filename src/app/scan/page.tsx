@@ -1,12 +1,15 @@
 "use client";
 
+import {
+  useEventCheckInEvent,
+  useEventGetAll,
+  useFirebase,
+  useFlagGetOne,
+  useHackathonGetForStatic,
+} from "@hackpsu/react-sdk";
 import type React from "react";
 import { useState, useEffect, useRef, useCallback } from "react";
 import jsQR from "jsqr";
-import { useFirebase } from "@/common/context";
-import { useAllEvents, useCheckInEvent } from "@/common/api/event";
-import { useActiveHackathonForStatic } from "@/common/api/hackathon/hook";
-import { useFlagState } from "@/common/api/flag/hook";
 import { Button } from "@/components/ui/button";
 import {
 	Select,
@@ -36,10 +39,10 @@ const ScanPage: React.FC = () => {
 		data: eventsData,
 		isLoading: eventsLoading,
 		isError: eventsError,
-	} = useAllEvents();
-	const { data: hackathonData } = useActiveHackathonForStatic();
-	const { mutate: checkInMutate, isPending: isCheckInPending } = useCheckInEvent();
-	const { data: checkInFlag, isLoading: flagLoading } = useFlagState("CheckIn");
+	} = useEventGetAll();
+	const { data: hackathonData } = useHackathonGetForStatic();
+	const { mutate: checkInMutate, isPending: isCheckInPending } = useEventCheckInEvent();
+	const { data: checkInFlag, isLoading: flagLoading } = useFlagGetOne("CheckIn");
 
 	// Start camera
 	useEffect(() => {

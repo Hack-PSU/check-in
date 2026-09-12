@@ -1,19 +1,19 @@
 "use client";
 
+import {
+  ScoreCreateEntity,
+  OrganizerUpdateScoreEntity,
+  useFirebase,
+  useFlagGetOne,
+  useHackathonGetForStatic,
+  useJudgingAssignAdditionalProjects,
+  useProjectGetAll,
+  useScoreCreateOne,
+  useScoreGetAll,
+  useOrganizerPatchAssignedProjectScore,
+} from "@hackpsu/react-sdk";
 import type React from "react";
 import { useState, useEffect } from "react";
-import {
-	useAllScores,
-	useAllProjects,
-	useCreateScore,
-	useUpdateScore,
-	useAssignAdditonalJudging,
-	type ScoreCreateEntity,
-	type ScoreUpdateEntity,
-} from "@/common/api/judging";
-import { useFirebase } from "@/common/context";
-import { useActiveHackathonForStatic } from "@/common/api/hackathon";
-import { useFlagState } from "@/common/api/flag";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
@@ -74,17 +74,17 @@ export default function JudgingPage() {
 	const [selectedProjectId, setSelectedProjectId] = useState<number | null>(
 		null
 	);
-	const [scoreValues, setScoreValues] = useState<ScoreUpdateEntity>({});
+	const [scoreValues, setScoreValues] = useState<OrganizerUpdateScoreEntity>({});
 	const [notesMap, setNotesMap] = useState<Record<number, string>>({});
 	const [isSubmitting, setIsSubmitting] = useState(false);
 
-	const { data: allProjects, isLoading: loadingProjects } = useAllProjects();
-	const { data: allScores, isLoading: loadingScores } = useAllScores();
-	const { data: hackathonData } = useActiveHackathonForStatic();
-	const { mutate: createScoreMutate } = useCreateScore();
-	const { mutate: updateScoreMutate } = useUpdateScore();
-	const { mutate: assignAdditionalJudgingMutate } = useAssignAdditonalJudging();
-	const { data: judgingFlag, isLoading: flagLoading } = useFlagState("judging");
+	const { data: allProjects, isLoading: loadingProjects } = useProjectGetAll();
+	const { data: allScores, isLoading: loadingScores } = useScoreGetAll();
+	const { data: hackathonData } = useHackathonGetForStatic();
+	const { mutate: createScoreMutate } = useScoreCreateOne();
+	const { mutate: updateScoreMutate } = useOrganizerPatchAssignedProjectScore();
+	const { mutate: assignAdditionalJudgingMutate } = useJudgingAssignAdditionalProjects();
+	const { data: judgingFlag, isLoading: flagLoading } = useFlagGetOne("judging");
 
 	const [initialFetchDone, setInitialFetchDone] = useState(false);
 
@@ -141,7 +141,7 @@ export default function JudgingPage() {
 			user?.uid &&
 			assignedProjects.length === 0
 		) {
-			assignAdditionalJudgingMutate(user.uid, {
+			assignAdditionalJudgingMutate({ judgeId: user.uid }, {
 				onSuccess: () => toast.success("New assignments fetched."),
 				onError: () => toast.error("Error fetching new assignments."),
 			});
@@ -289,7 +289,10 @@ export default function JudgingPage() {
 				{ onSuccess, onError }
 			);
 		} else {
-			createScoreMutate(payload as ScoreCreateEntity, { onSuccess, onError });
+			createScoreMutate(
+				{ data: payload as ScoreCreateEntity },
+				{ onSuccess, onError },
+			);
 		}
 	};
 
@@ -325,7 +328,10 @@ export default function JudgingPage() {
 				{ onSuccess, onError }
 			);
 		} else {
-			createScoreMutate(missing as ScoreCreateEntity, { onSuccess, onError });
+			createScoreMutate(
+				{ data: missing as ScoreCreateEntity },
+				{ onSuccess, onError },
+			);
 		}
 	};
 

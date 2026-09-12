@@ -1,5 +1,8 @@
 "use client";
 
+import {
+  useFirebase,
+} from "@hackpsu/react-sdk";
 import type React from "react";
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -15,7 +18,6 @@ import {
 	ToggleRight,
 	ImageIcon,
 } from "lucide-react";
-import { useFirebase } from "@/common/context";
 import { cn } from "@/lib/utils";
 
 interface NavSubItem {

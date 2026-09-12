@@ -1,5 +1,10 @@
 "use client";
 
+import {
+  useFirebase,
+  useOrganizerGetAll,
+  useUserGetAll,
+} from "@hackpsu/react-sdk";
 import type React from "react";
 import {
 	useState,
@@ -28,9 +33,6 @@ import {
 	RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useFirebase } from "@/common/context/FirebaseProvider";
-import { useAllUsers } from "@/common/api/user/hook";
-import { useAllOrganizers } from "@/common/api/organizer/hook";
 
 // --- Constants ---
 const ROOM_ID = "global-chat-room"; // Namespace for this chat room
@@ -84,9 +86,9 @@ const formatTime = (timestamp: number): string =>
 // --- Main Component ---
 const ChatRoomPage: React.FC = () => {
 	const { user } = useFirebase();
-	const { data: allUsers, isLoading: areUsersLoading } = useAllUsers();
+	const { data: allUsers, isLoading: areUsersLoading } = useUserGetAll();
 	const { data: allOrganizers, isLoading: areOrganizersLoading } =
-		useAllOrganizers();
+		useOrganizerGetAll();
 
 	const peopleMap = useMemo(() => {
 		const newMap = new Map<string, { firstName: string; lastName: string }>();

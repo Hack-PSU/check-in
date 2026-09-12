@@ -1,5 +1,13 @@
 "use client";
 
+import {
+  EventType,
+  Role,
+  useEventGetAll,
+  useOrganizerGetAll,
+  useScanGetAll,
+  useUserGetAll,
+} from "@hackpsu/react-sdk";
 import { useState, useMemo } from "react";
 import {
 	Card,
@@ -20,10 +28,6 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Scan, MapPin, Clock } from "lucide-react";
-import { useAllEvents, EventType } from "@/common/api/event";
-import { useAllOrganizers, Role } from "@/common/api/organizer";
-import { useAllScans } from "@/common/api/scan";
-import { useAllUsers } from "@/common/api/user";
 
 export default function HackathonDashboard() {
 	const [selectedHackathon, setSelectedHackathon] = useState<string>("");
@@ -32,12 +36,12 @@ export default function HackathonDashboard() {
 
 	// Fetch data using provided hooks
 	const { data: scans = [], isLoading: scansLoading } =
-		useAllScans(selectedHackathon);
-	const { data: users = [], isLoading: usersLoading } = useAllUsers(true);
+		useScanGetAll({ hackathonId: selectedHackathon });
+	const { data: users = [], isLoading: usersLoading } = useUserGetAll({ active: true });
 	const { data: organizers = [], isLoading: organizersLoading } =
-		useAllOrganizers();
+		useOrganizerGetAll();
 	const { data: events = [], isLoading: eventsLoading } =
-		useAllEvents(selectedHackathon);
+		useEventGetAll({ hackathonId: selectedHackathon });
 
 	const isLoading =
 		scansLoading || usersLoading || organizersLoading || eventsLoading;

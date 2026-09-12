@@ -1,6 +1,13 @@
 {
 	"$schema": "https://docs.renovatebot.com/renovate-schema.json",
 	"extends": ["config:recommended"],
+	"hostRules": [
+		{
+			"description": "Allow Renovate to read @hackpsu packages from Artifact Registry",
+			"matchHost": "us-east4-npm.pkg.dev",
+			"hostType": "npm"
+		}
+	],
 	"branchPrefix": "renovate/",
 	"prConcurrentLimit": 10,
 	"prHourlyLimit": 0,
@@ -12,6 +19,11 @@
 		"schedule": ["on Sunday"]
 	},
 	"packageRules": [
+		{
+			"description": "Ship the API client and SDK together; react-sdk pins an exact api-client version",
+			"matchPackageNames": ["@hackpsu/api-client", "@hackpsu/react-sdk"],
+			"groupName": "hackpsu sdk"
+		},
 		{
 			"description": "Automerge non-major updates when tests pass",
 			"matchUpdateTypes": ["minor", "patch"],

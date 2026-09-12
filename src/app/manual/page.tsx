@@ -1,5 +1,13 @@
 "use client";
 
+import {
+  useEventCheckInEvent,
+  useEventGetAll,
+  useFirebase,
+  useFlagGetOne,
+  useHackathonGetForStatic,
+  useUserGetAll,
+} from "@hackpsu/react-sdk";
 import { useState, useMemo } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { Card, CardContent } from "@/components/ui/card";
@@ -27,11 +35,6 @@ import {
 	CommandItem,
 } from "@/components/ui/command";
 import { Toaster, toast } from "sonner";
-import { useAllEvents, useCheckInEvent } from "@/common/api/event";
-import { useAllUsers } from "@/common/api/user";
-import { useActiveHackathonForStatic } from "@/common/api/hackathon";
-import { useFirebase } from "@/common/context";
-import { useFlagState } from "@/common/api/flag/hook";
 
 interface FormValues {
 	userId: string;
@@ -44,15 +47,15 @@ export default function ManualCheckIn() {
 		data: events = [],
 		isLoading: eventsLoading,
 		isError: eventsError,
-	} = useAllEvents();
+	} = useEventGetAll();
 	const {
 		data: users = [],
 		isLoading: usersLoading,
 		isError: usersError,
-	} = useAllUsers();
-	const { data: hackathon } = useActiveHackathonForStatic();
-	const { mutate: checkInMutate } = useCheckInEvent();
-	const { data: checkInFlag, isLoading: flagLoading } = useFlagState("CheckIn");
+	} = useUserGetAll();
+	const { data: hackathon } = useHackathonGetForStatic();
+	const { mutate: checkInMutate } = useEventCheckInEvent();
+	const { data: checkInFlag, isLoading: flagLoading } = useFlagGetOne("CheckIn");
 
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [userQuery, setUserQuery] = useState("");

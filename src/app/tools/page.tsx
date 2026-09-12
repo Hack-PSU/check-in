@@ -1,5 +1,11 @@
 "use client";
 
+import {
+  useProjectUploadCsv,
+  useRegistrationGetAll,
+  useUserGetAll,
+  useUserGetAllResumes,
+} from "@hackpsu/react-sdk";
 import type React from "react";
 import { useState } from "react";
 import {
@@ -36,10 +42,6 @@ import {
 	Gavel,
 	HelpCircle,
 } from "lucide-react";
-import { useUploadProjectsCsv } from "@/common/api/judging/hook";
-import { useAllResumes } from "@/common/api/user/hook";
-import { useAllUsers } from "@/common/api/user/hook";
-import { useAllRegistrations } from "@/common/api/registration/hook";
 
 const quickLinks = [
 	{
@@ -102,25 +104,25 @@ export default function EventOperations() {
 	const [selectedFile, setSelectedFile] = useState<File | null>(null);
 	const [uploadProgress, setUploadProgress] = useState(0);
 
-	const uploadProjectsCsv = useUploadProjectsCsv();
+	const uploadProjectsCsv = useProjectUploadCsv();
 	const {
 		data: resumesBlob,
 		isLoading: resumesLoading,
 		refetch: fetchResumes,
 		isError: resumesError,
-	} = useAllResumes();
+	} = useUserGetAllResumes();
 
 	const {
 		data: registrations,
 		isLoading: regsLoading,
 		isError: regsError,
-	} = useAllRegistrations(false);
+	} = useRegistrationGetAll({ all: false });
 
 	const {
 		data: users,
 		isLoading: usersLoading,
 		isError: usersError,
-	} = useAllUsers();
+	} = useUserGetAll();
 
 	const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
 		const file = event.target.files?.[0];
@@ -142,7 +144,9 @@ export default function EventOperations() {
 
 		try {
 			setUploadProgress(10);
-			const result = await uploadProjectsCsv.mutateAsync(selectedFile);
+			const result = await uploadProjectsCsv.mutateAsync({
+				data: { file: selectedFile },
+			});
 			setUploadProgress(100);
 
 			toast.success(`Successfully uploaded ${result.length} projects!`);

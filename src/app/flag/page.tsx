@@ -1,5 +1,11 @@
 "use client";
 
+import {
+  PatchFlagsBody,
+  useFlagActivateFlag,
+  useFlagGetAll,
+  useFlagPatchFlags,
+} from "@hackpsu/react-sdk";
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,12 +14,6 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Toaster, toast } from "sonner";
 import { RefreshCw, ToggleLeft, ToggleRight } from "lucide-react";
-import {
-	useAllFlags,
-	useActivateFlag,
-	usePatchFlags,
-} from "@/common/api/flag/hook";
-import type { PatchFlagsBody } from "@/common/api/flag/entity";
 
 export default function FlagManagement() {
 	const [isUpdatingAll, setIsUpdatingAll] = useState(false);
@@ -26,17 +26,19 @@ export default function FlagManagement() {
 		isLoading: flagsLoading,
 		isError: flagsError,
 		refetch: refetchFlags,
-	} = useAllFlags();
+	} = useFlagGetAll();
 
-	const { mutate: activateFlag } = useActivateFlag();
-	const { mutate: patchFlags } = usePatchFlags();
+	const { mutate: activateFlag } = useFlagActivateFlag();
+	const { mutate: patchFlags } = useFlagPatchFlags();
 
 	// Handle individual flag toggle
 	const handleFlagToggle = (flagName: string, newState: boolean) => {
 		activateFlag(
 			{
-				name: flagName,
-				isEnabled: newState,
+				data: {
+					name: flagName,
+					isEnabled: newState,
+				},
 			},
 			{
 				onSuccess: () => {

@@ -1,5 +1,15 @@
 "use client";
 
+import {
+  ReservationEntity,
+  ReservationType,
+  useHackathonGetForStatic,
+  useLocationGetAll,
+  useReservationCancelReservation,
+  useReservationCreateReservation,
+  useReservationGetReservations,
+  useTeamGetAll,
+} from "@hackpsu/react-sdk";
 import React, { useState, useMemo, useCallback, useEffect } from "react";
 import {
 	Calendar,
@@ -40,16 +50,6 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { Toaster, toast } from "sonner";
-import {
-	useReservations,
-	useCreateReservation,
-	useCancelReservation,
-	useLocations,
-	ReservationEntity,
-	ReservationType,
-} from "@/common/api/reservation";
-import { useAllTeams } from "@/common/api/team";
-import { useActiveHackathonForStatic } from "@/common/api/hackathon";
 
 type SortField = "startTime" | "locationId" | "teamId" | "reservationType";
 type SortDirection = "asc" | "desc";
@@ -84,23 +84,23 @@ export default function AdminReservations() {
 	});
 
 	// Fetch data
-	const { data: activeHackathon } = useActiveHackathonForStatic();
+	const { data: activeHackathon } = useHackathonGetForStatic();
 	const hackathonId = activeHackathon?.id || "";
 
 	const {
 		data: reservations = [],
 		isLoading: reservationsLoading,
 		refetch: refetchReservations,
-	} = useReservations(hackathonId);
+	} = useReservationGetReservations();
 
-	const { data: locations = [] } = useLocations();
-	const { data: teams = [] } = useAllTeams();
+	const { data: locations = [] } = useLocationGetAll();
+	const { data: teams = [] } = useTeamGetAll();
 
 	// Mutations
 	const { mutateAsync: createReservation, isPending: isCreating } =
-		useCreateReservation();
+		useReservationCreateReservation();
 	const { mutateAsync: cancelReservation, isPending: isDeleting } =
-		useCancelReservation(hackathonId);
+		useReservationCancelReservation();
 
 	// Update selectedDate when hackathon data loads
 	useEffect(() => {
@@ -412,8 +412,8 @@ export default function AdminReservations() {
 	// Filter and sort reservations
 	const filteredReservations = useMemo(() => {
 		let filtered = reservations.filter((reservation) => {
-			const locationName = getLocationName(reservation.locationId).toLowerCase();
-			const teamName = getTeamName(reservation.teamId).toLowerCase();
+			const locationName = getLocationName(reservation.locationId ?? null).toLowerCase();
+			const teamName = getTeamName(reservation.teamId ?? null).toLowerCase();
 			const search = searchTerm.toLowerCase();
 
 			const matchesSearch =
@@ -436,8 +436,8 @@ export default function AdminReservations() {
 				aVal = getLocationName(a.locationId);
 				bVal = getLocationName(b.locationId);
 			} else if (sortField === "teamId") {
-				aVal = getTeamName(a.teamId);
-				bVal = getTeamName(b.teamId);
+				aVal = getTeamName(a.teamId ?? null);
+				bVal = getTeamName(b.teamId ?? null);
 			}
 
 			if (aVal < bVal) return sortDirection === "asc" ? -1 : 1;
@@ -452,10 +452,10 @@ export default function AdminReservations() {
 	const stats = useMemo(() => {
 		const total = reservations.length;
 		const admin = reservations.filter(
-			(r) => r.reservationType === ReservationType.ADMIN
+			(r) => r.reservationType === ReservationType.admin
 		).length;
 		const participant = reservations.filter(
-			(r) => r.reservationType === ReservationType.PARTICIPANT
+			(r) => r.reservationType === ReservationType.participant
 		).length;
 		return { total, admin, participant };
 	}, [reservations]);
@@ -478,11 +478,13 @@ export default function AdminReservations() {
 			}
 
 			await createReservation({
-				locationId: parseInt(formData.locationId),
-				teamId: formData.teamId === "__NONE__" ? "" : formData.teamId,
-				startTime: parseInputToTimestamp(formData.startTime),
-				endTime: parseInputToTimestamp(formData.endTime),
-				hackathonId,
+				data: {
+					locationId: parseInt(formData.locationId),
+					teamId: formData.teamId === "__NONE__" ? "" : formData.teamId,
+					startTime: parseInputToTimestamp(formData.startTime),
+					endTime: parseInputToTimestamp(formData.endTime),
+					hackathonId,
+				},
 			});
 
 			toast.success("Reservation created successfully!");
@@ -498,7 +500,7 @@ export default function AdminReservations() {
 		if (!selectedReservation) return;
 
 		try {
-			await cancelReservation(selectedReservation.id);
+			await cancelReservation({ id: selectedReservation.id });
 			toast.success("Reservation deleted successfully!");
 			setDeleteModalOpen(false);
 			setSelectedReservation(null);
@@ -754,10 +756,10 @@ export default function AdminReservations() {
 									</SelectTrigger>
 									<SelectContent>
 										<SelectItem value="all">All Types</SelectItem>
-										<SelectItem value={ReservationType.ADMIN}>
+										<SelectItem value={ReservationType.admin}>
 											Admin Only
 										</SelectItem>
-										<SelectItem value={ReservationType.PARTICIPANT}>
+										<SelectItem value={ReservationType.participant}>
 											Participant Only
 										</SelectItem>
 									</SelectContent>
@@ -852,14 +854,14 @@ export default function AdminReservations() {
 														<div className="flex items-center gap-2">
 															<MapPin className="h-4 w-4 text-muted-foreground" />
 															<span className="font-medium">
-																{getLocationName(reservation.locationId)}
+																{getLocationName(reservation.locationId ?? null)}
 															</span>
 														</div>
 													</td>
 													<td className="p-4">
 														<div className="flex items-center gap-2">
 															<Users className="h-4 w-4 text-muted-foreground" />
-															<span>{getTeamName(reservation.teamId)}</span>
+															<span>{getTeamName(reservation.teamId ?? null)}</span>
 														</div>
 													</td>
 													<td className="p-4">
@@ -881,18 +883,18 @@ export default function AdminReservations() {
 														<Badge
 															variant={
 																reservation.reservationType ===
-																ReservationType.ADMIN
+																ReservationType.admin
 																	? "default"
 																	: "secondary"
 															}
 															className={
 																reservation.reservationType ===
-																ReservationType.ADMIN
+																ReservationType.admin
 																	? "bg-purple-100 text-purple-800"
 																	: "bg-blue-100 text-blue-800"
 															}
 														>
-															{reservation.reservationType === ReservationType.ADMIN
+															{reservation.reservationType === ReservationType.admin
 																? "Admin"
 																: "Participant"}
 														</Badge>
@@ -1050,7 +1052,7 @@ export default function AdminReservations() {
 							</div>
 							<div className="flex items-center gap-2">
 								<Users className="h-4 w-4 text-muted-foreground" />
-								<span>{getTeamName(selectedReservation.teamId)}</span>
+								<span>{getTeamName(selectedReservation.teamId ?? null)}</span>
 							</div>
 							<div className="flex items-center gap-2">
 								<Clock className="h-4 w-4 text-muted-foreground" />
@@ -1111,22 +1113,22 @@ export default function AdminReservations() {
 										<div className="flex items-center gap-2">
 											<Users className="h-4 w-4 text-muted-foreground" />
 											<span className="font-medium">
-												{getTeamName(reservation.teamId)}
+												{getTeamName(reservation.teamId ?? null)}
 											</span>
 										</div>
 										<Badge
 											variant={
-												reservation.reservationType === ReservationType.ADMIN
+												reservation.reservationType === ReservationType.admin
 													? "default"
 													: "secondary"
 											}
 											className={
-												reservation.reservationType === ReservationType.ADMIN
+												reservation.reservationType === ReservationType.admin
 													? "bg-purple-100 text-purple-800"
 													: "bg-blue-100 text-blue-800"
 											}
 										>
-											{reservation.reservationType === ReservationType.ADMIN
+											{reservation.reservationType === ReservationType.admin
 												? "Admin"
 												: "Participant"}
 										</Badge>

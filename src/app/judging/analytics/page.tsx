@@ -1,5 +1,11 @@
 "use client";
 
+import {
+  ScoreResponseEntity,
+  ScoreEntity,
+  useProjectGetAll,
+  useScoreGetAll,
+} from "@hackpsu/react-sdk";
 import { useState, useMemo } from "react";
 import {
 	Card,
@@ -26,24 +32,19 @@ import {
 	AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Trophy, Users, CheckCircle, Star } from "lucide-react";
-import {
-	useAllProjects,
-	useAllScores,
-	ScoreEntity,
-} from "@/common/api/judging";
 
 export default function JudgingAnalyticsDashboard() {
 	const [searchTerm, setSearchTerm] = useState("");
 	const [sortBy, setSortBy] = useState<string>("total");
 
 	// Fetch data using provided hooks
-	const { data: projects = [], isLoading: projectsLoading } = useAllProjects();
-	const { data: scores = [], isLoading: scoresLoading } = useAllScores();
+	const { data: projects = [], isLoading: projectsLoading } = useProjectGetAll();
+	const { data: scores = [], isLoading: scoresLoading } = useScoreGetAll();
 
 	const isLoading = projectsLoading || scoresLoading;
 
 	// Helper function to calculate core score (excluding challenges)
-	const calculateCoreScore = (score: ScoreEntity) => {
+	const calculateCoreScore = (score: ScoreResponseEntity) => {
 		return (
 			(score.creativity || 0) +
 			(score.technical || 0) +
@@ -572,10 +573,9 @@ export default function JudgingAnalyticsDashboard() {
 																			`${score.judge?.firstName || ""} ${score.judge?.lastName || ""}`.trim() ||
 																			"Unknown Judge";
 																		const coreScore = calculateCoreScore(score);
-																		// Use score.id if available, otherwise use a combination of project.id and scoreIndex
-																		const accordionValue = score.id
-																			? score.id.toString()
-																			: `${project.id}-${scoreIndex}`;
+																		// Scores are keyed by judge and project rather than
+																		// a single id, so build the value from both.
+																		const accordionValue = `${project.id}-${scoreIndex}`;
 
 																		return (
 																			<AccordionItem

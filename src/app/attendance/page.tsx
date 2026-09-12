@@ -1,5 +1,10 @@
 "use client";
 
+import {
+  useFirebase,
+  useFlagGetOne,
+  useOrganizerGetAll,
+} from "@hackpsu/react-sdk";
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,9 +20,6 @@ import {
 } from "@/components/ui/select";
 import { ClipboardCheck, Send, AlertCircle, UserCheck } from "lucide-react";
 import { toast } from "sonner";
-import { useFirebase } from "@/common/context";
-import { useAllOrganizers } from "@/common/api/organizer/hook";
-import { useFlagState } from "@/common/api/flag/hook";
 
 interface FormData {
 	name: string;
@@ -29,9 +31,9 @@ interface FormData {
 export default function AttendancePage() {
 	const { user } = useFirebase();
 	const { data: organizers = [], isLoading: organizersLoading } =
-		useAllOrganizers();
+		useOrganizerGetAll();
 	const { data: techAttendanceFlag, isLoading: flagLoading } =
-		useFlagState("Attendance");
+		useFlagGetOne("Attendance");
 
 	const [formData, setFormData] = useState<FormData>({
 		name: "",

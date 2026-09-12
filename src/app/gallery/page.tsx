@@ -1,9 +1,15 @@
 "use client";
 
+import {
+  useOrganizerGetOne,
+  usePhotoApprovePhoto,
+  usePhotoGetAllPendingPhotos,
+  usePhotoGetAllPhotos,
+  usePhotoRejectPhoto,
+  usePhotoUploadPhoto,
+  useUserGetOne,
+} from "@hackpsu/react-sdk";
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { useGetAllPhotos, useGetPendingPhotos, useUploadPhoto, useApprovePhoto, useRejectPhoto } from "@/common/api/photos";
-import { useUser } from "@/common/api/user";
-import { useOrganizer } from "@/common/api/organizer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -124,11 +130,11 @@ const PhotoGalleryPage: React.FC = () => {
 	const streamRef = useRef<MediaStream | null>(null);
 	const loadMoreObserverRef = useRef<HTMLDivElement>(null);
 
-	const { data: allPhotos, isLoading, error, refetch } = useGetAllPhotos();
-	const { data: pendingPhotos, isLoading: isPendingLoading, error: pendingError, refetch: refetchPending } = useGetPendingPhotos();
-	const uploadMutation = useUploadPhoto();
-	const approveMutation = useApprovePhoto();
-	const rejectMutation = useRejectPhoto();
+	const { data: allPhotos, isLoading, error, refetch } = usePhotoGetAllPhotos();
+	const { data: pendingPhotos, isLoading: isPendingLoading, error: pendingError, refetch: refetchPending } = usePhotoGetAllPendingPhotos();
+	const uploadMutation = usePhotoUploadPhoto();
+	const approveMutation = usePhotoApprovePhoto();
+	const rejectMutation = usePhotoRejectPhoto();
 
 	// Calculate pagination and filter photos based on current tab and file type
 	const getPhotosForTab = (): typeof allPhotos => {
@@ -304,8 +310,8 @@ const PhotoGalleryPage: React.FC = () => {
 
 	const UserNameDisplay: React.FC<{ userId: string }> = ({ userId }) => {
 		console.log(userId);
-		const { data: user } = useUser(userId);
-		const { data: organizer } = useOrganizer(userId);
+		const { data: user } = useUserGetOne(userId);
+		const { data: organizer } = useOrganizerGetOne(userId);
 
 		//determine whether it is a user or organizer
 		const firstname = user?.firstName || organizer?.firstName || "";
@@ -337,7 +343,7 @@ const PhotoGalleryPage: React.FC = () => {
 
 	const handleApprove = (filename: string) => {
 		// Fire-and-forget for instant UI update
-		approveMutation.mutate(filename, {
+		approveMutation.mutate({ filename: filename }, {
 			onSuccess: () => {
 				toast.success("Photo approved successfully!");
 			},
@@ -350,7 +356,7 @@ const PhotoGalleryPage: React.FC = () => {
 
 	const handleReject = (filename: string) => {
 		// Fire-and-forget for instant UI update
-		rejectMutation.mutate(filename, {
+		rejectMutation.mutate({ filename: filename }, {
 			onSuccess: () => {
 				toast.success("Photo rejected successfully!");
 			},
@@ -377,11 +383,11 @@ const PhotoGalleryPage: React.FC = () => {
 
 				// Upload with the new file type set to "public"
 				uploadMutation.mutate(
-					{ file, fileType: "public" },
+					{ data: { photo: file, fileType: "public" } },
 					{
 						onSuccess: (data) => {
 							// Automatically approve the newly uploaded public photo
-							approveMutation.mutate(data.photoId, {
+							approveMutation.mutate({ filename: data.photoId }, {
 								onSuccess: () => {
 									toast.success("Photo converted to public and approved!");
 								},
@@ -503,7 +509,7 @@ const PhotoGalleryPage: React.FC = () => {
 			try {
 				setUploadStatus((prev) => ({ ...prev, [index.toString()]: "uploading" }));
 
-				await uploadMutation.mutateAsync({ file: item.file });
+				await uploadMutation.mutateAsync({ data: { photo: item.file } });
 				setUploadStatus((prev) => ({ ...prev, [index.toString()]: "success" }));
 				successCount++;
 			} catch (error) {
@@ -825,7 +831,7 @@ const PhotoGalleryPage: React.FC = () => {
 				type: "image/jpeg",
 			});
 
-			await uploadMutation.mutateAsync({ file });
+			await uploadMutation.mutateAsync({ data: { photo: file } });
 			toast.success("Photo uploaded successfully!");
 			stopCamera();
 			refetch();
@@ -966,7 +972,14 @@ const PhotoGalleryPage: React.FC = () => {
 			{/* Swipe Mode - Full screen overlay */}
 			{isSwipeMode && currentTab === "pending" && (
 				<SwipeView
-					photos={pendingPhotos?.filter(p => p.approvalStatus === "pending") || []}
+					photos={
+						pendingPhotos
+							?.filter((p) => p.approvalStatus === "pending")
+							.map((p) => ({
+								...p,
+								approvalStatus: "pending" as const,
+							})) || []
+					}
 					onApprove={handleApprove}
 					onReject={handleReject}
 					onMakePublic={handleConvertToPublic}

@@ -1777,17 +1777,17 @@
     protobufjs "^7.2.5"
     yargs "^17.7.2"
 
-"@hackpsu/api-client@1.0.10":
-  version "1.0.10"
-  resolved "https://us-east4-npm.pkg.dev/hackpsu-408118/npm/@hackpsu/api-client/-/@hackpsu/api-client-1.0.10.tgz#0d9716b667abe80757ee729c1d50b996357c5565"
-  integrity sha512-iouwt3IgUz6JqcGeeMSrC/2x9q75QnevgS7BmM2Nb7oUvPZAQWJ2f3NS4/HXwRmMdZTStiQIlAjjvwyBllcW0g==
+"@hackpsu/api-client@1.0.11":
+  version "1.0.11"
+  resolved "https://us-east4-npm.pkg.dev/hackpsu-408118/npm/@hackpsu/api-client/-/@hackpsu/api-client-1.0.11.tgz#8b8e1c75ecaed977facc2fbe3a2bbc49f30e09b1"
+  integrity sha512-zFY5DivQ+Q38JHLbjaDxVfE44KjqvAXdtPu/j6oBTjKKjaH9QA3UWeoRT6RrsQwtGbFBpAlGNBo2A54/dlXuKQ==
 
 "@hackpsu/react-sdk@^1.0.10":
-  version "1.0.10"
-  resolved "https://us-east4-npm.pkg.dev/hackpsu-408118/npm/@hackpsu/react-sdk/-/@hackpsu/react-sdk-1.0.10.tgz#7f7d24f1d6aaa565b94531dc475c642d41492447"
-  integrity sha512-HvGGMDaY6kVFUqQELycESswpJloh6uYbrSJUDmtxQL+o+MnGxl5H1M9b8U9CQqYBMgNBJ6aiuoiF2Ng8SinaDA==
+  version "1.0.11"
+  resolved "https://us-east4-npm.pkg.dev/hackpsu-408118/npm/@hackpsu/react-sdk/-/@hackpsu/react-sdk-1.0.11.tgz#6d349fdafc934392db5311f58451327818ae0e85"
+  integrity sha512-LQldEO9TqEGsZKsjFkI/Ojk4koI49Z424UdUAS4JY1rHMA3sLU7XCiY035HAZYM0FlSHmePE8duO8+L+caBw9A==
   dependencies:
-    "@hackpsu/api-client" "1.0.10"
+    "@hackpsu/api-client" "1.0.11"
     firebase "^12.0.0"
     jwt-decode "^4.0.0"
 

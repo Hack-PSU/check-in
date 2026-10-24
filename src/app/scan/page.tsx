@@ -70,7 +70,9 @@ const ScanPage: React.FC = () => {
 	// Default event selection
 	useEffect(() => {
 		if (!eventsLoading && eventsData && eventsData.length && !selectedEvent) {
-			const checkInEvt = eventsData.find((e) => e.type === "checkIn");
+			const checkInEvt =
+				eventsData.find((e) => e.name?.trim().toLowerCase() === "check-in") ||
+				eventsData.find((e) => e.type === "checkIn");
 			setSelectedEvent(checkInEvt?.id || eventsData[0].id);
 		}
 	}, [eventsLoading, eventsData, selectedEvent]);
